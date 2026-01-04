@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IN CLUB | Sistema de Gestión</title>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="text-white fw-semibold">
+            👤 {{ usuario }}
+            <span class="opacity-75">({{ rol }})</span>
+            <span class="ms-3" id="reloj"></span>
+        </div>
+            <a href="/logout"
+                class="btn btn-danger btn-sm text-white px-3 py-2 mt-3">
+                Cerrar sesión
+            </a>
+    </div>
+
+    <!-- Bootstrap LOCAL -->
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+
+    <!-- Estilos personalizados -->
+    <style>
+        body {
+            background: radial-gradient(circle at top, #b00000, #000 65%);
+            min-height: 100vh;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+        }
+
+        .navbar-brand {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ff1a1a !important;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.9);
+        }
+
+        .nav-link {
+            color: #ffffff !important;
+            font-weight: 500;
+            margin: 0 8px;
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: "";
+            position: absolute;
+            width: 0%;
+            height: 2px;
+            background: #ff1a1a;
+            bottom: 0;
+            left: 0;
+            transition: 0.3s;
+            box-shadow: 0 0 10px #ff1a1a;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .nav-link:hover {
+            color: #ff1a1a !important;
+        }
+
+        .container {
+            margin-top: 60px;
+            color: white;
+        }
+    </style>
+</head>
+<script src="/static/js/mensajes.js"></script>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">IN CLUB</a>
+
+        <button class="navbar-toggler bg-danger" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse justify-content-end" id="menu">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Jornadas</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Productos</a></li>
+                <li class="nav-item"><a class="nav-link" href="/clientes">Clientes</a></li>
+                <li class="nav-item"><a class="nav-link" href="/usuario">Usuarios</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Barras</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">Informes</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+
+
+<!-- Bootstrap JS LOCAL -->
+<script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

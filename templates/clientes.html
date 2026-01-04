@@ -1,0 +1,145 @@
+{% include '/cabecera.html' %}
+
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      <form action="/guardar_Clientes" method="post">
+        <div class="row mb-3">
+          <div class="col">
+            <label>Nombre y Apellido</label>
+            <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" required>
+
+          </div>
+
+          <div class="col">
+            <label>N° de Documento</label>
+            <input type="number" name="dni" class="form-control" required>
+          </div>
+
+          <div class="col">
+            <label>CUIT</label>
+            <input type="text" name="cuil" class="form-control" required>
+          </div>
+          
+          
+          <div class="col d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Registrar</button>
+          </div>
+        </div>
+       
+      </form>
+     {% if succes %}
+    <div class="alert alert-success text-center">
+        {{ succes }}
+    </div>
+    {% endif %}
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>NOMBRE DEL CLIENTE</th>
+            <th>N° DE DOCUMENTO</th>
+            <th>CUIT/CUIL</th>            
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for alu in clientes %}
+          <tr>
+          <td>{{ alu.idclientes }}</td>
+          <td>{{ alu.apenomb }}</td>
+          <td>{{ alu.dni }}</td>
+          <td>{{ alu.cuil }}</td>
+          
+
+            <td>
+              <button class="btn btn-warning btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ alu.idclientes }}">
+                Editar
+              </button>
+
+              <button class="btn btn-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal2{{ alu.idclientes }}">
+                Eliminar
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES (FUERA DE LA TABLA) -->
+{% for alu in clientes %}
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="modal{{ alu.idclientes }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="/Update_Usuario/{{ alu.idclientes }}" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar: {{ alu.apenomb }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <label>Apellido y Nombre</label>
+          
+          <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" value="{{ alu.apenomb }}" required>
+
+          <label>N° de Documento</label>
+          <input type="number" name="dni" class="form-control mb-2" value="{{ alu.dni }}" required>
+
+          <label>N° de CUIL/CUIT</label>
+          <input type="text" name="cuil" class="form-control mb-2" value="{{ alu.cuil }}" required>
+
+          
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="submit">Actualizar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="modal2{{ alu.usuarios }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Eliminar: {{ alu.apenomb }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        ¿Está seguro que desea eliminar este usuario?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <a href="/delete_Usuario/{{ alu.idclientes }}" class="btn btn-danger">Eliminar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endfor %}
+
+
+
+
+
+
+
+{% include '/pie.html' %}

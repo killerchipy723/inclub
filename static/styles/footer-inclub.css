@@ -1,0 +1,32 @@
+.footer-inclub {
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 30px 0;
+    margin-top: 60px;
+    box-shadow: 0 -5px 25px rgba(255, 0, 0, 0.35);
+}
+
+.footer-title {
+    color: #ff1a1a;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+}
+
+.footer-subtitle {
+    color: #ffffff;
+    font-size: 14px;
+    letter-spacing: 3px;
+}
+
+.footer-divider {
+    width: 120px;
+    margin: 15px auto;
+    border: 1px solid #ff1a1a;
+    box-shadow: 0 0 10px #ff1a1a;
+}
+
+.footer-text {
+    color: #aaa;
+    font-size: 14px;
+}

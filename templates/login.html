@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>IN CLUB | Acceso</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap OFFLINE -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
+
+    <!-- Bootstrap Icons OFFLINE -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='icons/bootstrap-icons.css') }}">
+
+    <!-- Fuente local (opcional) -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='styles/estiloLogin.css') }}">
+</head>
+
+<body class="bg-dark">
+
+<div class="login-card">
+    <div class="logo">
+        IN CLUB
+        <span>NIGHT EXPERIENCE</span>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger text-center">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('login') }}" method="post" class="mt-4">
+        <div class="mb-3 input-group">
+            <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+            <input type="text" name="nombre" class="form-control" placeholder="Usuario" required>
+        </div>
+
+        <div class="mb-3 input-group">
+            <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+            <input type="password" name="clave" class="form-control" placeholder="Contraseña" required>
+        </div>
+
+        <div class="d-grid mt-4">
+            <button class="btn btn-primary" type="submit">
+                INGRESAR
+            </button>
+        </div>
+    </form>
+
+    <div class="footer-text text-light mt-3 text-center">
+        © 2026 IN CLUB · Acceso restringido
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

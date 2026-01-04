@@ -1,0 +1,94 @@
+body {
+            font-family: 'Montserrat', sans-serif;
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #b00000, #000000 60%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 0 40px rgba(255, 0, 0, 0.35);
+            animation: fadeIn 1s ease;
+        }
+
+        .logo {
+            font-size: 42px;
+            font-weight: 700;
+            color: #ff1a1a;
+            text-align: center;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+        }
+
+        .logo span {
+            font-size: 16px;
+            display: block;
+            letter-spacing: 5px;
+            color: #ffffff;
+            margin-top: 5px;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: #fff;
+            border-radius: 12px;
+            padding: 12px 15px;
+        }
+
+        .form-control::placeholder {
+            color: #ccc;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .input-group-text {
+            background: transparent;
+            border: none;
+            color: #ff1a1a;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #ff0000, #a00000);
+            border: none;
+            border-radius: 50px;
+            padding: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            transform: scale(1.03);
+            box-shadow: 0 0 35px rgba(255, 0, 0, 0.9);
+        }
+
+        .footer-text {
+            text-align: center;
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 25px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }

@@ -1,0 +1,160 @@
+{% include '/cabecera.html' %}
+
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      <form action="/reg_Usu" method="post">
+        <div class="row mb-3">
+          <div class="col">
+            <label>Nombre</label>
+            <input type="text" name="nombre" class="form-control" required>
+          </div>
+
+          <div class="col">
+            <label>Contraseña</label>
+            <input type="password" name="clave" class="form-control" required>
+          </div>
+
+          <div class="col">
+            <label>Rol de Usuario</label>
+            <select name="rol" class="form-control" required>
+              <option disabled selected value="">Seleccione rol</option>
+              <option value="Vendedor">Vendedor</option>
+              <option value="Administrador">Administrador</option>
+              <option value="Otro">Otro/a</option>
+            </select>
+          </div>
+
+          <div class="col">
+            <label>Estado</label>
+            <select name="estado" class="form-control" required>
+              <option disabled selected value="">Seleccione estado</option>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>
+          
+          <div class="col d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Registrar</button>
+          </div>
+        </div>
+       
+      </form>
+      {% for msg in alert %}
+       <div class="alert alert-primary" role="alert">
+          {{msg[0]}}
+        </div>
+      {% endfor%}
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>NOMBRE</th>
+            <th>CLAVE</th>
+            <th>PRIVILEGIO</th>
+            <th>ESTADO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for alu in usuarios %}
+          <tr>
+          <td>{{ alu.idusuarios }}</td>
+          <td>{{ alu.nombre }}</td>
+          <td>{{ alu.clave }}</td>
+          <td>{{ alu.rol }}</td>
+          <td>{{ alu.estado }}</td>
+
+            <td>
+              <button class="btn btn-warning btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ alu.idusuarios }}">
+                Editar
+              </button>
+
+              <button class="btn btn-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal2{{ alu.idusuarios }}">
+                Eliminar
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES (FUERA DE LA TABLA) -->
+{% for alu in usuarios %}
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="modal{{ alu.idusuarios }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="/Update_Usuario/{{ alu.idusuarios }}" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar: {{ alu.nombre }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <label>Usuario</label>
+          <input type="text" name="nombre" class="form-control mb-2" value="{{ alu.nombre }}" required>
+
+          <label>Contraseña</label>
+          <input type="password" name="clave" class="form-control mb-2" value="{{ alu.clave }}" required>
+
+          <label>Rol</label>
+          <select name="rol" class="form-control mb-2" required>
+            <option value="Vendedor" {% if alu.rol=='Vendedor' %}selected{% endif %}>Vendedor</option>
+            <option value="Administrador" {% if alu.rol=='Administrador' %}selected{% endif %}>Administrador</option>
+            <option value="Otro" {% if alu.rol=='Otro' %}selected{% endif %}>Otro</option>
+          </select>
+
+          <label>Estado</label>
+          <select name="estado" class="form-control" required>
+            <option value="Activo" {% if alu.rdtado=='Activo' %}selected{% endif %}>Activo</option>
+            <option value="Inactivo" {% if alu.estado=='Inactivo' %}selected{% endif %}>Inactivo</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="submit">Actualizar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="modal2{{ alu.usuarios }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Eliminar: {{ alu[1] }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        ¿Está seguro que desea eliminar este usuario?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <a href="/delete_Usuario/{{ alu[0] }}" class="btn btn-danger">Eliminar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endfor %}
+
+{% include '/pie.html' %}
