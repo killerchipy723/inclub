@@ -1,51 +1,114 @@
- body {
-            background: radial-gradient(circle at top, #b00000, #000 65%);
-            min-height: 100vh;
-            font-family: 'Montserrat', sans-serif;
-        }
+/* =========================
+   ESTILOS GENERALES
+========================= */
+body {
+    background: radial-gradient(circle at top, #b00000, #000 65%);
+    min-height: 100vh;
+    font-family: 'Montserrat', sans-serif;
+}
 
-        .navbar {
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
-        }
+/* =========================
+   NAVBAR
+========================= */
+.navbar {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+    position: relative;
+    z-index: 1000;
+}
 
-        .navbar-brand {
-            font-size: 28px;
-            font-weight: 700;
-            color: #ff1a1a !important;
-            letter-spacing: 3px;
-            text-shadow: 0 0 10px rgba(255, 0, 0, 0.9);
-        }
+/* Permitir que dropdown sobresalga */
+.navbar,
+.navbar .container-fluid {
+    overflow: visible;
+}
 
-        .nav-link {
-            color: #ffffff !important;
-            font-weight: 500;
-            margin: 0 8px;
-            position: relative;
-        }
+/* =========================
+   BRAND
+========================= */
+.navbar-brand {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ff1a1a !important;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.9);
+}
 
-        .nav-link::after {
-            content: "";
-            position: absolute;
-            width: 0%;
-            height: 2px;
-            background: #ff1a1a;
-            bottom: 0;
-            left: 0;
-            transition: 0.3s;
-            box-shadow: 0 0 10px #ff1a1a;
-        }
+/* =========================
+   LINKS NAV
+========================= */
+.nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+    margin: 0 8px;
+    position: relative;
+    cursor: pointer;
+}
 
-        .nav-link:hover::after {
-            width: 100%;
-        }
+/* Línea animada debajo del link */
+.nav-link::after {
+    content: "";
+    position: absolute;
+    width: 0%;
+    height: 2px;
+    background: #ff1a1a;
+    bottom: 0;
+    left: 0;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px #ff1a1a;
+    pointer-events: none;
+}
 
-        .nav-link:hover {
-            color: #ff1a1a !important;
-        }
+.nav-link:hover::after {
+    width: 100%;
+}
 
-        .container {
-            margin-top: 60px;
-            color: white;
-        }
+.nav-link:hover {
+    color: #ff1a1a !important;
+}
+
+/* =========================
+   DROPDOWN (HOVER)
+========================= */
+.nav-item.dropdown {
+    position: relative;
+}
+
+.nav-item.dropdown .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: rgba(248, 246, 246, 0.95);
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+    z-index: 9999;
+    min-width: 200px;
+}
+
+/* Mostrar al pasar el mouse */
+.nav-item.dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+/* Items del dropdown */
+.dropdown-item {
+    color: #ff1a1a;
+    padding: 10px 16px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(255, 26, 26, 0.15);
+    color: #ff1a1a;
+}
+
+/* =========================
+   CONTENEDOR PRINCIPAL
+========================= */
+.container {
+    margin-top: 60px;
+    color: white;
+}
