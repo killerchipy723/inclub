@@ -6,7 +6,7 @@ import pymysql
 app = Flask(__name__)
 app.secret_key = "inclub_secreto_2026"
 
-# Login Loguot
+# Seccion de Acccesos 
 @app.route("/")
 def home():
     return render_template("login.html")
@@ -196,6 +196,27 @@ def guardar_Clientes():
     conexion.commit()
     msg = "Registro Exitoso de Cliente"
     return redirect(url_for('home_clientes',succes=msg))
+
+
+#Ruta para modificar Clientes
+@app.route("/Update_Clientes/<int:id>", methods=["POST"])
+def update_Clientes(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    apenomb = request.form["apenomb"]
+    dni = request.form["dni"]
+    cuil = request.form["cuil"]   
+    query = 'UPDATE clientes SET apenomb=%s, dni=%s, cuil=%s WHERE idclientes=%s'
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute(query,(apenomb,dni,cuil,id))    
+    conexion.commit()
+
+    return redirect(url_for("home_clientes"))
+
+
+#Ruta para Eliminar Clientes
 
 
 
