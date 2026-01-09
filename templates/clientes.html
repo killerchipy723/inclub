@@ -1,17 +1,15 @@
 {% include '/cabecera.html' %}
 
-
 <div class="container mt-4">
   <div class="card shadow">
     <div class="card-body">
 
-      <!-- FORMULARIO --> 
+      <!-- FORMULARIO -->
       <form action="/guardar_Clientes" method="post">
         <div class="row mb-3">
           <div class="col">
             <label>Nombre y Apellido</label>
             <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" required>
-
           </div>
 
           <div class="col">
@@ -23,19 +21,15 @@
             <label>CUIT</label>
             <input type="text" name="cuil" class="form-control" required>
           </div>
-          
-          
+
           <div class="col d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Registrar</button>
+            <button class="btn btn-primary w-100" type="submit">
+              Registrar
+            </button>
           </div>
         </div>
-       
       </form>
-     {% if succes %}
-    <div class="alert alert-success text-center">
-        {{ succes }}
-    </div>
-    {% endif %}
+
       <!-- TABLA -->
       <table class="table table-bordered table-striped bg-light text-dark mt-4">
         <thead class="table-dark">
@@ -43,7 +37,7 @@
             <th>ID</th>
             <th>NOMBRE DEL CLIENTE</th>
             <th>N° DE DOCUMENTO</th>
-            <th>CUIT/CUIL</th>            
+            <th>CUIT/CUIL</th>
             <th>ACCIONES</th>
           </tr>
         </thead>
@@ -51,12 +45,10 @@
         <tbody>
           {% for alu in clientes %}
           <tr>
-          <td>{{ alu.idclientes }}</td>
-          <td>{{ alu.apenomb }}</td>
-          <td>{{ alu.dni }}</td>
-          <td>{{ alu.cuil }}</td>
-          
-
+            <td>{{ alu.idclientes }}</td>
+            <td>{{ alu.apenomb }}</td>
+            <td>{{ alu.dni }}</td>
+            <td>{{ alu.cuil }}</td>
             <td>
               <button class="btn btn-warning btn-sm"
                       data-bs-toggle="modal"
@@ -79,7 +71,7 @@
   </div>
 </div>
 
-<!-- MODALES (FUERA DE LA TABLA) -->
+<!-- MODALES EDITAR / ELIMINAR -->
 {% for alu in clientes %}
 
 <!-- MODAL EDITAR -->
@@ -94,16 +86,17 @@
 
         <div class="modal-body">
           <label>Apellido y Nombre</label>
-          
-          <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" value="{{ alu.apenomb }}" required>
+          <input type="text" name="apenomb" class="form-control mb-2 text-uppercase"
+                 value="{{ alu.apenomb }}" required>
 
           <label>N° de Documento</label>
-          <input type="number" name="dni" class="form-control mb-2" value="{{ alu.dni }}" required>
+          <input type="number" name="dni" class="form-control mb-2"
+                 value="{{ alu.dni }}" required>
 
-          <label>N° de CUIL/CUIT</label>
-          <input type="text" name="cuil" class="form-control mb-2" value="{{ alu.cuil }}" required>
-
-          
+          <label>CUIT</label>
+          <input type="text" name="cuil" class="form-control mb-2"
+                 value="{{ alu.cuil }}" required>
+        </div>
 
         <div class="modal-footer">
           <button class="btn btn-primary" type="submit">Actualizar</button>
@@ -114,7 +107,7 @@
 </div>
 
 <!-- MODAL ELIMINAR -->
-<div class="modal fade" id="modal2{{ alu.usuarios }}" tabindex="-1">
+<div class="modal fade" id="modal2{{ alu.idclientes }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
@@ -123,7 +116,7 @@
       </div>
 
       <div class="modal-body">
-        ¿Está seguro que desea eliminar este usuario?
+        ¿Está seguro que desea eliminar este cliente?
       </div>
 
       <div class="modal-footer">
@@ -136,10 +129,33 @@
 
 {% endfor %}
 
+<!-- MODAL CONFIRMACIÓN -->
+<div class="modal fade" id="modalOk" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Éxito</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        {{ message }}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" data-bs-dismiss="modal">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-
-
-
-
+{% if message %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = new bootstrap.Modal(
+    document.getElementById('modalOk')
+  );
+  modal.show();
+});
+</script>
+{% endif %}
 
 {% include '/pie.html' %}

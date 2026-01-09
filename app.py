@@ -72,9 +72,11 @@ def home_userReg():
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
     cursor.execute("SELECT * FROM usuarios")
     data = cursor.fetchall()
+    message = request.args.get('message')
 
     return render_template("usuarios.html",
                            usuarios=data,
+                           message = message,
                            user=session["nombre"],
                            rol=session["rol"])
 
@@ -97,7 +99,7 @@ def reg_usuario():
     )
     conexion.commit()
 
-    return redirect(url_for("home_userReg"))
+    return redirect(url_for("home_userReg",message='Usuario Registrado Correctamente!'))
 
 
 @app.route("/delete_Usuario/<int:id>")
@@ -176,12 +178,20 @@ def registrar_venta():
 #ruta principal de clientes
 @app.route("/clientes",methods=['GET'])
 def home_clientes():
+    if "id" not in session['rol']!="Administrador":
+        return redirect(url_for('home'))
+    
     conexion = getConnection()
     query = 'select * from clientes'
-    cursor = conexion.cursor()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
     cursor.execute(query)
     data = cursor.fetchall()
-    return render_template("clientes.html",clientes=data)
+    message = request.args.get('message')  # 👈 ACA SÍ
+    return render_template("clientes.html",
+                           clientes=data,
+                           user=session["nombre"],
+                           rol=session["rol"],
+                           message = message)
 
 #Ruta para guardar clientes
 @app.route("/guardar_Clientes",methods=['POST'])
@@ -195,7 +205,7 @@ def guardar_Clientes():
     cursor.execute(query,(apenomb,dni,cuil))
     conexion.commit()
     msg = "Registro Exitoso de Cliente"
-    return redirect(url_for('home_clientes',succes=msg))
+    return redirect(url_for('home_clientes',message = 'Cliente Registrado Correctamente'))
 
 
 #Ruta para modificar Clientes
@@ -217,6 +227,51 @@ def update_Clientes(id):
 
 
 #Ruta para Eliminar Clientes
+
+
+# ------------------------------Jornadas----------------------------------
+
+# ruta jornadas
+@app.route("/Jornadas", methods=['GET'])
+def home_Jornadas():
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("select * from jornadas")
+    data = cursor.fetchall()
+
+    message = request.args.get('message')  # 👈 ACA SÍ
+
+    return render_template(
+        "jornadas.html",
+        jornadas=data,
+        message=message,
+        user=session["nombre"],
+        rol=session["rol"]
+    )
+@app.route("/guardar_Jornadas", methods=['POST'])
+def save_Jornadas():
+    conexion = getConnection()
+
+    nombre = request.form['nombre'].upper()
+    clave = request.form['clave']
+    finicio = request.form['finicio']
+    ffinal = request.form['ffin']
+
+    sql = '''
+        insert into jornadas(nombre, clave, finicio, ffinal)
+        values (%s, %s, %s, %s)
+    '''
+
+    cursor = conexion.cursor()
+    cursor.execute(sql, (nombre, clave, finicio, ffinal))
+    conexion.commit()
+
+    return redirect(
+        url_for('home_Jornadas', message='Registro Exitoso')
+    )
+
+
+
 
 
 

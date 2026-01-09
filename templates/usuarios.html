@@ -157,4 +157,34 @@
 
 {% endfor %}
 
+<!-- MODAL CONFIRMACIÓN -->
+<div class="modal fade" id="modalOk" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Éxito</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        {{ message }}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" data-bs-dismiss="modal">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if message %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = new bootstrap.Modal(
+    document.getElementById('modalOk')
+  );
+  modal.show();
+});
+</script>
+{% endif %}
+
+
 {% include '/pie.html' %}
