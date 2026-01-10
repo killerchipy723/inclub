@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session
+import uuid
 from db import getConnection
 from datetime import datetime
 import pymysql
@@ -365,6 +366,44 @@ def delete_producto(id):
     conexion.commit()
 
     return redirect(url_for("home_Jornadas",message ='Producto eliminado correctamente'))
+
+#------------------------------Punto de venta-----------------------------
+#ruta para obtener mac
+def obtener_mac():
+    mac = uuid.getnode()
+    return ':'.join(f'{(mac >> ele) & 0xff:02x}' for ele in range(40, -1, -8))
+
+
+#Ruta Principal Puntos de Venta
+@app.route("/puntos_venta",methods=['GET'])
+def punto_venta():
+    mac = obtener_mac()
+    message = request.args.get('message')
+    conexion = getConnection()
+    sql = 'select * from puntos_venta'
+    cursor = conexion.cursor()
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    return render_template('punto_venta.html',mac = mac,message=message,
+                           puntos_venta=data,
+                           rol=session['rol'],
+                           usuario=session['nombre'])
+
+#Ruta para asignar puntos de venta
+@app.route("/guardar_Puntos_venta",methods=['POST'])
+def save_punto():
+    conexion = getConnection()
+    sql = 'INSERT INTO puntos_venta(nombre,idequipo,estado)VALUES(%s,%s,%s)'
+    nombre = request.form['nombre'].upper()
+    idequipo = request.form['idequipo']
+    estado = request.form['estado']
+    cursor = conexion.cursor()
+    cursor.execute(sql,(nombre,idequipo,estado))
+    conexion.commit()
+    return redirect(url_for('punto_venta',message='Punto de Eventa asignado correctamente!'))
+
+
+
 
 
 
