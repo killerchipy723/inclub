@@ -4,8 +4,9 @@
   <div class="card shadow">
     <div class="card-body">
 
-      <!-- FORMULARIO -->
+      <!-- ================= FORMULARIO ================= -->
       <form action="/guardar_Jornadas" method="post">
+
         <div class="row mb-3">
           <div class="col">
             <label>Nombre del Evento</label>
@@ -26,14 +27,81 @@
             <label>Fecha de finalización</label>
             <input type="date" name="ffin" class="form-control" required>
           </div>
+        </div>
 
-          <div class="col d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Registrar</button>
+        <!-- ================= EQUIPOS ================= -->
+        <div class="card mb-3">
+          <div class="card-header bg-dark text-white">
+            Equipos / Puntos de Venta
+          </div>
+          <div class="card-body">
+
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="equipos_todos" name="equipos_todos">
+              <label class="form-check-label fw-bold">
+                Habilitar todos los equipos
+              </label>
+            </div>
+
+            <div class="row">
+              {% for p in puntos_venta %}
+              <div class="col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input equipo-check"
+                         type="checkbox"
+                         name="equipos[]"
+                         value="{{ p.idpunto }}">
+                  <label class="form-check-label">
+                    {{ p.nombre }}
+                  </label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
           </div>
         </div>
+
+        <!-- ================= PRODUCTOS ================= -->
+        <div class="card mb-3">
+          <div class="card-header bg-dark text-white">
+            Productos habilitados
+          </div>
+          <div class="card-body">
+
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="productos_todos" name="productos_todos">
+              <label class="form-check-label fw-bold">
+                Habilitar todos los productos
+              </label>
+            </div>
+
+            <div class="row">
+              {% for pr in productos %}
+              <div class="col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input producto-check"
+                         type="checkbox"
+                         name="productos[]"
+                         value="{{ pr.idproductos }}">
+                  <label class="form-check-label">
+                    {{ pr.nombre }} (${{ pr.importe }})
+                  </label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100" type="submit">
+          Registrar Jornada
+        </button>
+
       </form>
 
-      <!-- TABLA -->
+      <!-- ================= TABLA ================= -->
       <table class="table table-bordered table-striped mt-4">
         <thead class="table-dark">
           <tr>
@@ -46,6 +114,7 @@
             <th>Acciones</th>
           </tr>
         </thead>
+
         <tbody>
           {% for alu in jornadas %}
           <tr>
@@ -77,37 +146,23 @@
   </div>
 </div>
 
-<!-- MODALES -->
+<!-- ================= MODALES ================= -->
 {% for alu in jornadas %}
 
-<!-- MODAL EDITAR -->
 <div class="modal fade" id="modalEdit{{ alu.idjornada }}" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form action="/Update_Clientes/{{ alu.idjornada }}" method="post">
+      <form action="/Update_Jornadas/{{ alu.idjornada }}" method="post">
         <div class="modal-header">
           <h5 class="modal-title">Editar: {{ alu.nombre }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         <div class="modal-body">
-          <label>Nombre</label>
-          <input type="text" name="nombre" class="form-control mb-2 text-uppercase"
-                 value="{{ alu.nombre }}" required>
-
-          <label>Clave</label>
-          <input type="text" name="clave" class="form-control mb-2"
-                 value="{{ alu.clave }}" required>
-          
-           <label>Fecha de Inicio</label>
-          <input type="date" name="ffinal" class="form-control mb-2"
-                 value="{{ alu.ffinal }}" required>
-        </div>    
-          
-
-          <label>Fecha de finalización</label>
-          <input type="date" name="ffinal" class="form-control mb-2"
-                 value="{{ alu.ffinal }}" required>
+          <input type="text" name="nombre" class="form-control mb-2" value="{{ alu.nombre }}" required>
+          <input type="text" name="clave" class="form-control mb-2" value="{{ alu.clave }}" required>
+          <input type="date" name="finicio" class="form-control mb-2" value="{{ alu.finicio }}" required>
+          <input type="date" name="ffinal" class="form-control mb-2" value="{{ alu.ffinal }}" required>
         </div>
 
         <div class="modal-footer">
@@ -118,21 +173,19 @@
   </div>
 </div>
 
-<!-- MODAL ELIMINAR -->
 <div class="modal fade" id="modalDelete{{ alu.idjornada }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">Eliminar: {{ alu.nombre }}</h5>
+        <h5 class="modal-title">Eliminar Jornada</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <div class="modal-body">
-        ¿Está seguro que desea eliminar la jornada?
+        ¿Está seguro que desea eliminar esta jornada?
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <a href="/delete_Jornadas/{{ alu.idjornada }}" class="btn btn-danger">Eliminar</a>
       </div>
     </div>
@@ -141,13 +194,12 @@
 
 {% endfor %}
 
-<!-- MODAL OK -->
+<!-- ================= MODAL OK ================= -->
 <div class="modal fade" id="modalOk" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
         <h5 class="modal-title">Éxito</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body text-center">
         {{ message }}
@@ -166,5 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endif %}
+
+<!-- ================= JS CHECKBOX ================= -->
+<script>
+document.getElementById('equipos_todos').addEventListener('change', function () {
+  document.querySelectorAll('.equipo-check').forEach(c => c.checked = this.checked);
+});
+
+document.getElementById('productos_todos').addEventListener('change', function () {
+  document.querySelectorAll('.producto-check').forEach(c => c.checked = this.checked);
+});
+</script>
 
 {% include '/pie.html' %}

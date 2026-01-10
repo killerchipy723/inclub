@@ -4,47 +4,99 @@ from db import getConnection
 from datetime import datetime
 import pymysql
 
+
+
 app = Flask(__name__)
 app.secret_key = "inclub_secreto_2026"
 
 #---------------------------------Login--------------------------------------------- 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return render_template("login.html")
 
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
     nombre = request.form["nombre"]
     clave = request.form["clave"]
+    equipo = obtener_mac()
 
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    query = """
+    # 1️⃣ VALIDAR USUARIO
+    cursor.execute("""
         SELECT idusuarios, nombre, rol, estado
         FROM usuarios
         WHERE nombre=%s AND clave=%s
-    """
-    cursor.execute(query, (nombre, clave))
+    """, (nombre, clave))
     user = cursor.fetchone()
 
     if not user:
+        conexion.close()
         return render_template("login.html", error="Usuario o contraseña incorrectos")
 
     if user["estado"] != "Activo":
+        conexion.close()
         return render_template("login.html", error="Usuario inactivo")
 
-    # 🔐 GUARDAR SESIÓN
+    # 🟢 BYPASS ADMINISTRADOR
+    if user["rol"] == "Administrador":
+        session["id"] = user["idusuarios"]
+        session["nombre"] = user["nombre"]
+        session["rol"] = user["rol"]
+        session["equipo"] = equipo  # IP actual
+        conexion.close()
+        return redirect(url_for("admin"))
+
+    # 2️⃣ VALIDAR PUNTO (NO ADMIN)
+    cursor.execute("""
+        SELECT idpunto, nombre
+        FROM puntos_venta
+        WHERE idequipo=%s AND estado='Activo'
+    """, (equipo,))
+    punto = cursor.fetchone()
+
+    if not punto:
+        conexion.close()
+        return render_template(
+            "login.html",
+            error="Este equipo no está habilitado como punto de venta"
+        )
+
+    # 3️⃣ VALIDAR USUARIO ↔ PUNTO
+    cursor.execute("""
+        SELECT 1
+        FROM usuarios_puntos
+        WHERE idusuario=%s AND idpunto=%s
+        LIMIT 1
+    """, (user["idusuarios"], punto["idpunto"]))
+
+    if not cursor.fetchone():
+        conexion.close()
+        return render_template(
+            "login.html",
+            error="Usuario no autorizado para este punto de venta"
+        )
+
+    # 4️⃣ GUARDAR SESIÓN
     session["id"] = user["idusuarios"]
     session["nombre"] = user["nombre"]
     session["rol"] = user["rol"]
+    session["idpunto"] = punto["idpunto"]
+    session["punto"] = punto["nombre"]
 
-    if user["rol"] == "Administrador":
-        return redirect(url_for("admin"))
-    else:
-        return redirect(url_for("ventas"))
+    conexion.close()
+    return redirect(url_for("ventas"))
 
+
+
+# =======================
+# LOGOUT
+# =======================
 
 @app.route("/logout")
 def logout():
@@ -99,6 +151,7 @@ def reg_usuario():
         (nombre, clave, rol, estado)
     )
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_userReg",message='Usuario Registrado Correctamente!'))
 
@@ -112,6 +165,7 @@ def delete_usuario(id):
     cursor = conexion.cursor()
     cursor.execute("DELETE FROM usuarios WHERE idusuarios=%s", (id,))
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_userReg",message = 'Registro Eliminado Correctamente!'))
 
@@ -134,8 +188,113 @@ def update_usuario(id):
         WHERE idusuarios=%s
     """, (nombre, clave, rol, estado, id))
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_userReg"))
+#--------------------------------------Usuarios Puntos---------------------------
+
+# ==============================
+# RUTA PRINCIPAL ASIGNACIONES
+# ==============================
+
+@app.route("/usuarios_puntos")
+def usuarios_puntos():
+    if "id" not in session or session["rol"] != "Administrador":
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # Usuarios
+    cursor.execute("SELECT idusuarios, nombre FROM usuarios WHERE estado='Activo'")
+    usuarios = cursor.fetchall()
+
+    # Puntos de venta
+    cursor.execute("SELECT idpunto, nombre, idequipo FROM puntos_venta WHERE estado='Activo'")
+    puntos = cursor.fetchall()
+
+    # Asignaciones
+    cursor.execute("""
+        SELECT up.id,
+               u.nombre AS usuario,
+               p.nombre AS punto,
+               p.idequipo
+        FROM usuarios_puntos up
+        JOIN usuarios u ON u.idusuarios = up.idusuario
+        JOIN puntos_venta p ON p.idpunto = up.idpunto
+    """)
+    asignaciones = cursor.fetchall()
+
+    conexion.close()
+
+    message = request.args.get("message")
+
+    return render_template(
+        "usuarios_puntos.html",
+        usuarios=usuarios,
+        puntos=puntos,
+        asignaciones=asignaciones,
+        message=message,
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+
+
+# ==============================
+# REGISTRAR ASIGNACIÓN
+# ==============================
+
+@app.route("/reg_usuario_punto", methods=["POST"])
+def reg_usuario_punto():
+    if "id" not in session or session["rol"] != "Administrador":
+        return redirect(url_for("home"))
+
+    idusuario = request.form["idusuario"]
+    idpunto = request.form["idpunto"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO usuarios_puntos (idusuario, idpunto)
+            VALUES (%s, %s)
+        """, (idusuario, idpunto))
+        conexion.commit()
+        msg = "Usuario asignado correctamente!"
+    except Exception:
+        msg = "El usuario ya está asignado a ese punto"
+
+    conexion.close()
+
+    return redirect(url_for("usuarios_puntos", message=msg))
+
+
+# ==============================
+# ELIMINAR ASIGNACIÓN
+# ==============================
+
+@app.route("/delete_usuario_punto/<int:id>")
+def delete_usuario_punto(id):
+    if "id" not in session or session["rol"] != "Administrador":
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute(
+        "DELETE FROM usuarios_puntos WHERE id=%s",
+        (id,)
+    )
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for(
+            "usuarios_puntos",
+            message="Asignación eliminada correctamente"
+        )
+    )
+
 
 #--------------------------------------Ventas-------------------------------------
 @app.route("/ventas")
@@ -172,6 +331,7 @@ def registrar_venta():
     ))
 
     conexion.commit()
+    
 
     return redirect(url_for("ventas"))
 
@@ -205,6 +365,7 @@ def guardar_Clientes():
     cursor = conexion.cursor()
     cursor.execute(query,(apenomb,dni,cuil))
     conexion.commit()
+    conexion.close()
     msg = "Registro Exitoso de Cliente"
     return redirect(url_for('home_clientes',message = 'Cliente Registrado Correctamente'))
 
@@ -223,6 +384,7 @@ def update_Clientes(id):
     cursor = conexion.cursor()
     cursor.execute(query,(apenomb,dni,cuil,id))    
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for('home_clientes',message = 'Cliente Actualizado Correctamente'))
 
@@ -237,47 +399,132 @@ def eliminar_Clientes(id):
     cursor = conexion.cursor()
     cursor.execute("DELETE FROM clientes WHERE idclientes=%s", (id,))
     conexion.commit()
+    conexion.close()
     return redirect(url_for('home_clientes',message = 'Cliente Eliminado Correctamente'))
 # ------------------------------Jornadas----------------------------------
 
 # ruta jornadas
 @app.route("/Jornadas", methods=['GET'])
 def home_Jornadas():
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("select * from jornadas")
-    data = cursor.fetchall()
+    if "id" not in session:
+        return redirect(url_for("home"))
 
-    message = request.args.get('message')  # 👈 ACA SÍ
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # Jornadas
+    cursor.execute("SELECT * FROM jornadas")
+    jornadas = cursor.fetchall()
+
+    # 👉 Puntos de venta (equipos)
+    cursor.execute("SELECT idpunto, nombre FROM puntos_venta WHERE estado='Activo'")
+    puntos_venta = cursor.fetchall()
+
+    # 👉 Productos
+    cursor.execute("SELECT idproductos, nombre, importe FROM productos WHERE estado='Activo'")
+    productos = cursor.fetchall()
+
+    conexion.close()
+
+    message = request.args.get('message')
 
     return render_template(
         "jornadas.html",
-        jornadas=data,
+        jornadas=jornadas,
+        puntos_venta=puntos_venta,   # 👈 ESTO FALTABA
+        productos=productos,         # 👈 Y ESTO TAMBIÉN
         message=message,
         usuario=session["nombre"],
         rol=session["rol"]
     )
-@app.route("/guardar_Jornadas", methods=['POST'])
+
+
+# Ruta para guardar Jornadas
+@app.route("/guardar_Jornadas", methods=["POST"])
 def save_Jornadas():
+    # Seguridad: usuario logueado
+    if "id" not in session:
+        return redirect(url_for("home"))
+
     conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    nombre = request.form['nombre'].upper()
-    clave = request.form['clave']
-    finicio = request.form['finicio']
-    ffinal = request.form['ffin']
+    try:
+        # ================= DATOS JORNADA =================
+        nombre = request.form["nombre"].upper()
+        clave = request.form["clave"]
+        finicio = request.form["finicio"]
+        ffinal = request.form["ffin"]
 
-    sql = '''
-        insert into jornadas(nombre, clave, finicio, ffinal)
-        values (%s, %s, %s, %s)
-    '''
+        cursor.execute("""
+            INSERT INTO jornadas (nombre, clave, finicio, ffinal, estado)
+            VALUES (%s, %s, %s, %s, 'Activo')
+        """, (nombre, clave, finicio, ffinal))
 
-    cursor = conexion.cursor()
-    cursor.execute(sql, (nombre, clave, finicio, ffinal))
-    conexion.commit()
+        # ID de la jornada recién creada
+        idjornada = cursor.lastrowid
+
+        # ================= EQUIPOS (PUNTOS DE VENTA) =================
+        if request.form.get("equipos_todos"):
+            cursor.execute("""
+                SELECT idpunto
+                FROM puntos_venta
+                WHERE estado = 'Activo'
+            """)
+            puntos = cursor.fetchall()
+
+            for p in puntos:
+                cursor.execute("""
+                    INSERT INTO jornadas_puntos (idjornada, idpunto)
+                    VALUES (%s, %s)
+                """, (idjornada, p["idpunto"]))
+        else:
+            equipos = request.form.getlist("equipos[]")
+            for e in equipos:
+                cursor.execute("""
+                    INSERT INTO jornadas_puntos (idjornada, idpunto)
+                    VALUES (%s, %s)
+                """, (idjornada, e))
+
+        # ================= PRODUCTOS =================
+        if request.form.get("productos_todos"):
+            cursor.execute("""
+                SELECT idproductos
+                FROM productos
+                WHERE estado = 'Activo'
+            """)
+            productos = cursor.fetchall()
+
+            for pr in productos:
+                cursor.execute("""
+                    INSERT INTO jornadas_productos (idjornada, idproducto)
+                    VALUES (%s, %s)
+                """, (idjornada, pr["idproductos"]))
+        else:
+            productos = request.form.getlist("productos[]")
+            for pr in productos:
+                cursor.execute("""
+                    INSERT INTO jornadas_productos (idjornada, idproducto)
+                    VALUES (%s, %s)
+                """, (idjornada, pr))
+
+        conexion.commit()
+
+    except Exception as e:
+        conexion.rollback()
+        print("❌ Error al guardar jornada:", e)
+        return redirect(
+            url_for("home_Jornadas", message="Error al crear la jornada")
+        )
+
+    finally:
+        conexion.close()
 
     return redirect(
-        url_for('home_Jornadas', message='Registro Exitoso')
+        url_for("home_Jornadas", message="Jornada creada correctamente")
     )
+
+
 
 #Ruta para modificar Jornadas
 @app.route("/Update_Jornadas/<int:id>", methods=["POST"])
@@ -295,6 +542,7 @@ def update_Jornada(id):
     cursor = conexion.cursor()
     cursor.execute(query,(nombre,clave,finicio,ffinal,id))    
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_Jornadas",message='Registro Actualizado Correctamente'))
 
@@ -308,6 +556,7 @@ def delete_jornada(id):
     cursor = conexion.cursor()
     cursor.execute("DELETE FROM jornadas WHERE idjornada=%s", (id,))
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_Jornadas",message ='Jornada eliminada correctamente'))
 
@@ -339,6 +588,7 @@ def save_Productos():
     cursor = conexion.cursor()
     cursor.execute(query,(nombre,importe,estado))
     conexion.commit()
+    conexion.close()
     return redirect(url_for('home_Productos',message='Producto Agregado Correctamente'))
 
 #Ruta para modificar productos
@@ -352,6 +602,7 @@ def update_Productos(id):
     cursor = conexion.cursor()
     cursor.execute(query,(nombre,importe,estado,id))
     conexion.commit()
+    conexion.close()
     return redirect(url_for('home_Productos',message='Producto Modificado Correctamente'))
 
 #Ruta para eliminar productos
@@ -364,58 +615,126 @@ def delete_producto(id):
     cursor = conexion.cursor()
     cursor.execute("DELETE FROM productos WHERE idproductos=%s", (id,))
     conexion.commit()
+    conexion.close()
 
     return redirect(url_for("home_Jornadas",message ='Producto eliminado correctamente'))
 
 #------------------------------Punto de venta-----------------------------
-#ruta para obtener mac
+# Ruta para obtener "MAC" (ahora IP real del cliente)
 def obtener_mac():
-    mac = uuid.getnode()
-    return ':'.join(f'{(mac >> ele) & 0xff:02x}' for ele in range(40, -1, -8))
+    """
+    Devuelve la IP del equipo cliente.
+    Se mantiene el nombre de la función para no romper el sistema.
+    """
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0]
+    return request.remote_addr
 
 
-#Ruta Principal Puntos de Venta
-@app.route("/puntos_venta",methods=['GET'])
+def obtener_punto_por_mac(cursor):
+    mac = obtener_mac()
+    query = """
+        SELECT idpunto, nombre
+        FROM puntos_venta
+        WHERE idequipo=%s AND estado='Activo'
+    """
+    cursor.execute(query, (mac,))
+    return cursor.fetchone()
+
+
+# ==============================
+# RUTA PRINCIPAL PUNTOS DE VENTA
+# ==============================
+
+@app.route("/puntos_venta", methods=['GET'])
 def punto_venta():
     mac = obtener_mac()
     message = request.args.get('message')
-    conexion = getConnection()
-    sql = 'select * from puntos_venta'
-    cursor = conexion.cursor()
-    cursor.execute(sql)
-    data = cursor.fetchall()
-    return render_template('punto_venta.html',mac = mac,message=message,
-                           puntos_venta=data,
-                           rol=session['rol'],
-                           usuario=session['nombre'])
 
-#Ruta para asignar puntos de venta
-@app.route("/guardar_Puntos_venta",methods=['POST'])
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute('SELECT * FROM puntos_venta')
+    data = cursor.fetchall()
+    conexion.close()
+
+    return render_template(
+        'punto_venta.html',
+        mac=mac,
+        message=message,
+        puntos_venta=data,
+        rol=session['rol'],
+        usuario=session['nombre']
+    )
+
+
+# ============================
+# RUTA PARA GUARDAR PUNTO VENTA
+# ============================
+
+@app.route("/guardar_Puntos_venta", methods=['POST'])
 def save_punto():
     conexion = getConnection()
-    sql = 'INSERT INTO puntos_venta(nombre,idequipo,estado)VALUES(%s,%s,%s)'
-    nombre = request.form['nombre'].upper()
-    idequipo = request.form['idequipo']
-    estado = request.form['estado']
     cursor = conexion.cursor()
-    cursor.execute(sql,(nombre,idequipo,estado))
-    conexion.commit()
-    return redirect(url_for('punto_venta',message='Punto de Eventa asignado correctamente!'))
 
-#Ruta para modificar productos
-@app.route("/Update_Puntos_venta/<int:id>",methods=['POST'])
+    nombre = request.form['nombre'].upper()
+    idequipo = request.form.get('idequipo')
+
+    # Si no se carga equipo, se asigna automáticamente el cliente actual
+    if not idequipo:
+        idequipo = obtener_mac()
+
+    estado = request.form['estado']
+
+    sql = """
+        INSERT INTO puntos_venta (nombre, idequipo, estado)
+        VALUES (%s, %s, %s)
+    """
+    cursor.execute(sql, (nombre, idequipo, estado))
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for(
+            'punto_venta',
+            message='Punto de Venta asignado correctamente!'
+        )
+    )
+
+
+# ===============================
+# RUTA PARA MODIFICAR PUNTO VENTA
+# ===============================
+
+@app.route("/Update_Puntos_venta/<int:id>", methods=['POST'])
 def update_Puntos(id):
     conexion = getConnection()
+    cursor = conexion.cursor()
+
     nombre = request.form['nombre'].upper()
     idequipo = request.form['idequipo']
     estado = request.form['estado']
-    query = 'update puntos_venta set nombre=%s,idequipo=%s,estado=%s where idpunto=%s'
-    cursor = conexion.cursor()
-    cursor.execute(query,(nombre,idequipo,estado,id))
-    conexion.commit()
-    return redirect(url_for('punto_venta',message='Punto de Venta Modificado Correctamente'))
 
-#Ruta para eliminar productos
+    query = """
+        UPDATE puntos_venta
+        SET nombre=%s, idequipo=%s, estado=%s
+        WHERE idpunto=%s
+    """
+    cursor.execute(query, (nombre, idequipo, estado, id))
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for(
+            'punto_venta',
+            message='Punto de Venta Modificado Correctamente'
+        )
+    )
+
+
+# =============================
+# RUTA PARA ELIMINAR PUNTO VENTA
+# =============================
+
 @app.route("/delete_Puntos_venta/<int:id>")
 def delete_puntos(id):
     if "id" not in session:
@@ -423,10 +742,19 @@ def delete_puntos(id):
 
     conexion = getConnection()
     cursor = conexion.cursor()
-    cursor.execute("DELETE FROM puntos_venta WHERE idpunto=%s", (id,))
+    cursor.execute(
+        "DELETE FROM puntos_venta WHERE idpunto=%s",
+        (id,)
+    )
     conexion.commit()
+    conexion.close()
 
-    return redirect(url_for("home_Jornadas",message ='Punto de venta eliminado correctamente'))
+    return redirect(
+        url_for(
+            "punto_venta",
+            message='Punto de venta eliminado correctamente'
+        )
+    )
 
 
 

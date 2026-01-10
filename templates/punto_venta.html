@@ -14,7 +14,7 @@
           
           <div class="col">
             <label>Id de Equipo</label>
-            <input type="text" name="idequipo" value="{{mac}}" class="form-control" readonly>
+            <input type="text" name="idequipo" value="{{mac}}" class="form-control" readonly >
           </div>
          
 
@@ -30,9 +30,15 @@
           <div class="col d-flex align-items-end">
             <button class="btn btn-primary w-100" type="submit">Registrar</button>
           </div>
-
         </div>
       </form>
+
+      <!-- MENSAJES -->
+      {% if message %}
+      <div class="alert alert-primary">
+        {{ message }}
+      </div>
+      {% endif %}
 
       <!-- TABLA -->
       <table class="table table-bordered table-striped mt-4">
@@ -94,7 +100,7 @@
 
           <label>Identificación del Equipo</label>
           <input type="text" name="idequipo" class="form-control mb-2"
-                 value="{{ alu.idequipo }}" readonly>
+                 value="{{ mac }}" readonly>
 
            <label>Estado</label>
            <select name="estado" class="form-control mb-2" id="">

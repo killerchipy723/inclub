@@ -1,0 +1,83 @@
+{% include '/cabecera.html' %}
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      <form action="/reg_usuario_punto" method="post">
+        <div class="row mb-3">
+
+          <div class="col">
+            <label>Usuario</label>
+            <select name="idusuario" class="form-control" required>
+              <option disabled selected value="">Seleccione usuario</option>
+              {% for u in usuarios %}
+              <option value="{{ u.idusuarios }}">{{ u.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col">
+            <label>Punto de Venta</label>
+            <select name="idpunto" class="form-control" required>
+              <option disabled selected value="">Seleccione punto</option>
+              {% for p in puntos %}
+              <option value="{{ p.idpunto }}">
+                {{ p.nombre }} ({{ p.idequipo }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">
+              Asignar
+            </button>
+          </div>
+
+        </div>
+      </form>
+
+      <!-- MENSAJES -->
+      {% if message %}
+      <div class="alert alert-primary">
+        {{ message }}
+      </div>
+      {% endif %}
+
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>USUARIO</th>
+            <th>PUNTO DE VENTA</th>
+            <th>EQUIPO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for a in asignaciones %}
+          <tr>
+            <td>{{ a.id }}</td>
+            <td>{{ a.usuario }}</td>
+            <td>{{ a.punto }}</td>
+            <td>{{ a.idequipo }}</td>
+            <td>
+              <a href="/delete_usuario_punto/{{ a.id }}"
+                 class="btn btn-danger btn-sm">
+                Eliminar
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+{% include '/pie.html' %}
