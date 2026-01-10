@@ -70,7 +70,6 @@
           {% endfor %}
         </tbody>
       </table>
-
     </div>
   </div>
 </div>
@@ -82,7 +81,7 @@
 <div class="modal fade" id="modalEdit{{ alu.idpunto }}" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form action="/Update_Clientes/{{ alu.idpunto }}" method="post">
+      <form action="/Update_Puntos_venta/{{ alu.idpunto }}" method="post">
         <div class="modal-header">
           <h5 class="modal-title">Editar: {{ alu.nombre }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -95,22 +94,15 @@
 
           <label>Identificación del Equipo</label>
           <input type="text" name="idequipo" class="form-control mb-2"
-                 value="{{ alu.idequipo }}" required>
-          
+                 value="{{ alu.idequipo }}" readonly>
+
            <label>Estado</label>
            <select name="estado" class="form-control mb-2" id="">
-                <option value="{{ alu.estado }}">{{ estado }}</option>
+                <option value="{{ alu.estado }}">{{ alu.estado }}</option>
                 <option value="Activo">Activo</option>
                 <option value="Inactivo">Inactivo</option>
-           </select>
-
-          
-        </div>    
-          
-
-         
-        </div>
-
+           </select>          
+        </div> 
         <div class="modal-footer">
           <button class="btn btn-primary" type="submit">Actualizar</button>
         </div>

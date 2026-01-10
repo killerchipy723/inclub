@@ -402,6 +402,32 @@ def save_punto():
     conexion.commit()
     return redirect(url_for('punto_venta',message='Punto de Eventa asignado correctamente!'))
 
+#Ruta para modificar productos
+@app.route("/Update_Puntos_venta/<int:id>",methods=['POST'])
+def update_Puntos(id):
+    conexion = getConnection()
+    nombre = request.form['nombre'].upper()
+    idequipo = request.form['idequipo']
+    estado = request.form['estado']
+    query = 'update puntos_venta set nombre=%s,idequipo=%s,estado=%s where idpunto=%s'
+    cursor = conexion.cursor()
+    cursor.execute(query,(nombre,idequipo,estado,id))
+    conexion.commit()
+    return redirect(url_for('punto_venta',message='Punto de Venta Modificado Correctamente'))
+
+#Ruta para eliminar productos
+@app.route("/delete_Puntos_venta/<int:id>")
+def delete_puntos(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("DELETE FROM puntos_venta WHERE idpunto=%s", (id,))
+    conexion.commit()
+
+    return redirect(url_for("home_Jornadas",message ='Punto de venta eliminado correctamente'))
+
 
 
 
