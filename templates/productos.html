@@ -5,27 +5,26 @@
     <div class="card-body">
 
       <!-- FORMULARIO -->
-      <form action="/guardar_Jornadas" method="post">
+      <form action="/guardar_Productos" method="post">
         <div class="row mb-3">
           <div class="col">
-            <label>Nombre del Evento</label>
+            <label>Nombre del producto</label>
             <input type="text" name="nombre" class="form-control text-uppercase" required>
           </div>
 
           <div class="col">
-            <label>Clave</label>
-            <input type="text" name="clave" class="form-control text-uppercase" required>
+            <label>Importe</label>
+            <input type="number" name="importe" class="form-control text-uppercase" required>
           </div>
 
           <div class="col">
-            <label>Fecha de inicio</label>
-            <input type="date" name="finicio" class="form-control" required>
-          </div>
-
-          <div class="col">
-            <label>Fecha de finalización</label>
-            <input type="date" name="ffin" class="form-control" required>
-          </div>
+            <label>Estado</label>
+           <select name="estado" id="" required class="form-control text-uppercase">
+                <option disabled selected value="" >---Seleccione el estado--- </option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+           </select>
+          </div>          
 
           <div class="col d-flex align-items-end">
             <button class="btn btn-primary w-100" type="submit">Registrar</button>
@@ -38,33 +37,29 @@
         <thead class="table-dark">
           <tr>
             <th>ID</th>
-            <th>Jornada</th>
-            <th>Clave</th>
-            <th>Inicio</th>
-            <th>Fin</th>
-            <th>Estado</th>
+            <th>Producto</th>
+            <th>Importe</th>
+            <th>Estado</th>            
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {% for alu in jornadas %}
+          {% for alu in productos %}
           <tr>
-            <td>{{ alu.idjornada }}</td>
+            <td>{{ alu.idproductos }}</td>
             <td>{{ alu.nombre }}</td>
-            <td>{{ alu.clave }}</td>
-            <td>{{ alu.finicio }}</td>
-            <td>{{ alu.ffinal }}</td>
-            <td>{{ alu.estado }}</td>
+            <td>${{ alu.importe }}</td>
+            <td>{{ alu.estado }}</td>            
             <td>
               <button class="btn btn-warning btn-sm"
                       data-bs-toggle="modal"
-                      data-bs-target="#modalEdit{{ alu.idjornada }}">
+                      data-bs-target="#modalEdit{{ alu.idproductos }}">
                 Editar
               </button>
 
               <button class="btn btn-danger btn-sm"
                       data-bs-toggle="modal"
-                      data-bs-target="#modalDelete{{ alu.idjornada }}">
+                      data-bs-target="#modalDelete{{ alu.idproductos }}">
                 Eliminar
               </button>
             </td>
@@ -78,36 +73,35 @@
 </div>
 
 <!-- MODALES -->
-{% for alu in jornadas %}
+{% for alu in productos %}
 
 <!-- MODAL EDITAR -->
-<div class="modal fade" id="modalEdit{{ alu.idjornada }}" tabindex="-1">
+<div class="modal fade" id="modalEdit{{ alu.idproductos }}" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form action="/Update_Clientes/{{ alu.idjornada }}" method="post">
+      <form action="/Update_Productos/{{ alu.idproductos }}" method="post">
         <div class="modal-header">
           <h5 class="modal-title">Editar: {{ alu.nombre }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         <div class="modal-body">
-          <label>Nombre</label>
+          <label>Nombre del producto</label>
           <input type="text" name="nombre" class="form-control mb-2 text-uppercase"
                  value="{{ alu.nombre }}" required>
 
-          <label>Clave</label>
-          <input type="text" name="clave" class="form-control mb-2"
-                 value="{{ alu.clave }}" required>
-          
-           <label>Fecha de Inicio</label>
-          <input type="date" name="ffinal" class="form-control mb-2"
-                 value="{{ alu.ffinal }}" required>
-        </div>    
-          
+          <label>Importe</label>
+          <input type="number" name="importe" class="form-control mb-2"
+                 value="{{ alu.importe }}" required>
 
-          <label>Fecha de finalización</label>
-          <input type="date" name="ffinal" class="form-control mb-2"
-                 value="{{ alu.ffinal }}" required>
+          <label>Estado</label>
+          <select name="estado"  class="form-control mb-2" id="">
+            <option value="{{ alu.estado }}"  >{{ alu.estado }}</option>
+            <option value="Inactivo">Inactivo</option>
+            <option value="Activo">Activo</option>
+          </select>
+          
+          
         </div>
 
         <div class="modal-footer">
@@ -119,7 +113,7 @@
 </div>
 
 <!-- MODAL ELIMINAR -->
-<div class="modal fade" id="modalDelete{{ alu.idjornada }}" tabindex="-1">
+<div class="modal fade" id="modalDelete{{ alu.idproductos }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
@@ -128,12 +122,12 @@
       </div>
 
       <div class="modal-body">
-        ¿Está seguro que desea eliminar la jornada?
+        ¿Está seguro que desea eliminar el Producto?
       </div>
 
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <a href="/delete_Jornadas/{{ alu.idjornada }}" class="btn btn-danger">Eliminar</a>
+        <a href="/delete_Productos/{{ alu.idproductos }}" class="btn btn-danger">Eliminar</a>
       </div>
     </div>
   </div>

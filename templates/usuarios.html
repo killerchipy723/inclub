@@ -135,11 +135,11 @@
 </div>
 
 <!-- MODAL ELIMINAR -->
-<div class="modal fade" id="modal2{{ alu.usuarios }}" tabindex="-1">
+<div class="modal fade" id="modal2{{ alu.idusuarios }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">Eliminar: {{ alu[1] }}</h5>
+        <h5 class="modal-title">Eliminar: {{ alu.nombre }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
@@ -149,7 +149,7 @@
 
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <a href="/delete_Usuario/{{ alu[0] }}" class="btn btn-danger">Eliminar</a>
+        <a href="/delete_Usuario/{{ alu.idusuarios }}" class="btn btn-danger">Eliminar</a>
       </div>
     </div>
   </div>

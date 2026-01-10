@@ -6,7 +6,7 @@ import pymysql
 app = Flask(__name__)
 app.secret_key = "inclub_secreto_2026"
 
-# Seccion de Acccesos 
+#---------------------------------Login--------------------------------------------- 
 @app.route("/")
 def home():
     return render_template("login.html")
@@ -50,7 +50,7 @@ def logout():
     session.clear()
     return redirect(url_for("home"))
 
-#Admin seccion
+#----------------------------------Admin------------------------------------------------
 
 @app.route("/admin")
 def admin():
@@ -61,8 +61,8 @@ def admin():
                            usuario=session["nombre"],
                            rol=session["rol"])
 
-#Usuarios
-
+#------------------------------------Usuarios--------------------------------------------
+#Ruta Principal de Usuarios
 @app.route("/usuario")
 def home_userReg():
     if "id" not in session or session["rol"] != "Administrador":
@@ -77,10 +77,10 @@ def home_userReg():
     return render_template("usuarios.html",
                            usuarios=data,
                            message = message,
-                           user=session["nombre"],
+                           usuario=session["nombre"],
                            rol=session["rol"])
 
-
+#Ruta Registro de usuarios
 @app.route("/reg_Usu", methods=["POST"])
 def reg_usuario():
     if "id" not in session:
@@ -101,7 +101,7 @@ def reg_usuario():
 
     return redirect(url_for("home_userReg",message='Usuario Registrado Correctamente!'))
 
-
+#Ruta para Eliminar Usuarios
 @app.route("/delete_Usuario/<int:id>")
 def delete_usuario(id):
     if "id" not in session:
@@ -112,7 +112,7 @@ def delete_usuario(id):
     cursor.execute("DELETE FROM usuarios WHERE idusuarios=%s", (id,))
     conexion.commit()
 
-    return redirect(url_for("home_userReg"))
+    return redirect(url_for("home_userReg",message = 'Registro Eliminado Correctamente!'))
 
 
 @app.route("/Update_Usuario/<int:id>", methods=["POST"])
@@ -136,7 +136,7 @@ def update_usuario(id):
 
     return redirect(url_for("home_userReg"))
 
-#Ventas
+#--------------------------------------Ventas-------------------------------------
 @app.route("/ventas")
 def ventas():
     if "id" not in session:
@@ -189,9 +189,9 @@ def home_clientes():
     message = request.args.get('message')  # 👈 ACA SÍ
     return render_template("clientes.html",
                            clientes=data,
-                           user=session["nombre"],
-                           rol=session["rol"],
-                           message = message)
+                           message = message,
+                           usuario=session["nombre"],
+                           rol=session["rol"])
 
 #Ruta para guardar clientes
 @app.route("/guardar_Clientes",methods=['POST'])
@@ -223,12 +223,20 @@ def update_Clientes(id):
     cursor.execute(query,(apenomb,dni,cuil,id))    
     conexion.commit()
 
-    return redirect(url_for("home_clientes"))
+    return redirect(url_for('home_clientes',message = 'Cliente Actualizado Correctamente'))
 
 
 #Ruta para Eliminar Clientes
+@app.route("/delete_Clientes/<int:id>")
+def eliminar_Clientes(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
 
-
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("DELETE FROM clientes WHERE idclientes=%s", (id,))
+    conexion.commit()
+    return redirect(url_for('home_clientes',message = 'Cliente Eliminado Correctamente'))
 # ------------------------------Jornadas----------------------------------
 
 # ruta jornadas
@@ -245,7 +253,7 @@ def home_Jornadas():
         "jornadas.html",
         jornadas=data,
         message=message,
-        user=session["nombre"],
+        usuario=session["nombre"],
         rol=session["rol"]
     )
 @app.route("/guardar_Jornadas", methods=['POST'])
@@ -270,8 +278,93 @@ def save_Jornadas():
         url_for('home_Jornadas', message='Registro Exitoso')
     )
 
+#Ruta para modificar Jornadas
+@app.route("/Update_Jornadas/<int:id>", methods=["POST"])
+def update_Jornada(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
 
+    nombre = request.form["nombre"]
+    clave = request.form["clave"]
+    finicio = request.form["finicio"]  
+    ffinal = request.form["ffinal"]  
+    
+    query = 'UPDATE jornadas SET nombre=%s, clave=%s, finicio=%s,ffinal=%s WHERE idclientes=%s'
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute(query,(nombre,clave,finicio,ffinal,id))    
+    conexion.commit()
 
+    return redirect(url_for("home_Jornadas",message='Registro Actualizado Correctamente'))
+
+#Ruta para Eliminar Jornadas
+@app.route("/delete_Jornadas/<int:id>")
+def delete_jornada(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("DELETE FROM jornadas WHERE idjornada=%s", (id,))
+    conexion.commit()
+
+    return redirect(url_for("home_Jornadas",message ='Jornada eliminada correctamente'))
+
+#-----------------------------Productos----------------------------------
+#Ruta Principal de productos
+@app.route("/Productos")
+def home_Productos():
+    conexion = getConnection()
+    query = 'select * from productos'
+    message = request.args.get('message')
+    cursor = conexion.cursor()
+    cursor.execute(query)
+    data = cursor.fetchall()
+    return render_template('productos.html',
+                           message = message,
+                           productos=data,
+                           rol=session['rol'],
+                           usuario=session['nombre'])
+
+#Ruta para guardar Productos
+
+@app.route("/guardar_Productos",methods=['POST'])
+def save_Productos():
+    conexion = getConnection()
+    nombre = request.form['nombre'].upper()
+    importe = request.form['importe']
+    estado = request.form['estado']
+    query = 'insert into productos(nombre,importe,estado)VALUES(%s,%s,%s)'
+    cursor = conexion.cursor()
+    cursor.execute(query,(nombre,importe,estado))
+    conexion.commit()
+    return redirect(url_for('home_Productos',message='Producto Agregado Correctamente'))
+
+#Ruta para modificar productos
+@app.route("/Update_Productos/<int:id>",methods=['POST'])
+def update_Productos(id):
+    conexion = getConnection()
+    nombre = request.form['nombre'].upper()
+    importe = request.form['importe']
+    estado = request.form['estado']
+    query = 'update productos set nombre=%s,importe=%s,estado=%s where idproductos=%s'
+    cursor = conexion.cursor()
+    cursor.execute(query,(nombre,importe,estado,id))
+    conexion.commit()
+    return redirect(url_for('home_Productos',message='Producto Modificado Correctamente'))
+
+#Ruta para eliminar productos
+@app.route("/delete_Productos/<int:id>")
+def delete_producto(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("DELETE FROM productos WHERE idproductos=%s", (id,))
+    conexion.commit()
+
+    return redirect(url_for("home_Jornadas",message ='Producto eliminado correctamente'))
 
 
 
