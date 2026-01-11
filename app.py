@@ -90,7 +90,7 @@ def login():
     session["punto"] = punto["nombre"]
 
     conexion.close()
-    return redirect(url_for("ventas"))
+    return redirect(url_for("ventas_home"))
 
 
 
@@ -298,23 +298,55 @@ def delete_usuario_punto(id):
 
 #--------------------------------------Ventas-------------------------------------
 
-
 @app.route("/ventas", methods=["GET"])
 def ventas_home():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    message = request.args.get('message')
+    message = request.args.get("message")
 
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
+    # -------------------- JORNADA ACTIVA --------------------
+    cursor.execute("""
+        SELECT idjornada, nombre
+        FROM jornadas
+        WHERE estado = 'Activo'
+        LIMIT 1
+    """)
+    jornada = cursor.fetchone()
+
+    if not jornada:
+        conexion.close()
+        return "ERROR: No hay jornada activa"
+
+    session["idjornada"] = jornada["idjornada"]
+    idjornada = jornada["idjornada"]
+
+    # -------------------- RECAUDACIÓN TOTAL --------------------
+    cursor.execute("""
+        SELECT IFNULL(SUM(total), 0) AS recaudacion
+        FROM ventas
+        WHERE idjornada = %s
+        AND estado = 'OK'
+    """, (idjornada,))
+    recaudacion = cursor.fetchone()["recaudacion"]
+
     # -------------------- CLIENTES --------------------
-    cursor.execute("SELECT * FROM clientes")
+    cursor.execute("""
+        SELECT idclientes, apenomb
+        FROM clientes
+        ORDER BY apenomb
+    """)
     clientes = cursor.fetchall()
 
     # -------------------- MODOS DE PAGO --------------------
-    cursor.execute("SELECT * FROM modopago")
+    cursor.execute("""
+        SELECT idmodopago, modo
+        FROM modopago
+        ORDER BY modo
+    """)
     modopago = cursor.fetchall()
 
     # -------------------- PRODUCTOS --------------------
@@ -323,25 +355,36 @@ def ventas_home():
         FROM productos p
         JOIN jornadas_productos jp ON p.idproductos = jp.idproducto
         JOIN jornadas j ON jp.idjornada = j.idjornada
-        WHERE p.estado='Activo' AND j.estado='Activo'
+        WHERE p.estado = 'Activo'
+        AND j.estado = 'Activo'
         ORDER BY p.nombre
     """)
     productos = cursor.fetchall()
 
-    # -------------------- PUNTOS DEL CLIENTE --------------------
-    cursor.execute("SELECT idclientes, apenomb FROM clientes")
+    # -------------------- CLIENTES PARA PUNTOS --------------------
+    cursor.execute("""
+        SELECT idclientes, apenomb
+        FROM clientes
+        ORDER BY apenomb
+    """)
     clientes_puntos = cursor.fetchall()
 
     conexion.close()
 
-    return render_template("ventas.html",
-                           usuario=session["nombre"],
-                           rol=session["rol"],
-                           message=message,
-                           clientes=clientes,
-                           modopago=modopago,
-                           productos=productos,
-                           clientes_puntos=clientes_puntos)
+    return render_template(
+        "ventas.html",
+        usuario=session["nombre"],
+        rol=session["rol"],
+        message=message,
+        jornada=jornada,
+        recaudacion=recaudacion,
+        clientes=clientes,
+        modopago=modopago,
+        productos=productos,
+        clientes_puntos=clientes_puntos
+    )
+
+
 
 
 @app.route("/registrar_venta", methods=["POST"])
@@ -349,71 +392,117 @@ def registrar_venta():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    cliente_id = request.form.get("cliente")  # puede ser NULL para consumidor final
-    idmodopago = request.form["modopago"]
-    idpunto = request.form["punto"]           # si tenés puntos de venta
+    # ---------------- DATOS GENERALES ----------------
     idusuario = session["id"]
-    total = float(request.form["total"])
-    descuento_total = float(request.form.get("descuento_total", 0))
-    productos_seleccionados = request.form.getlist("productos[]")
+    idpunto = session["idpunto"]
+    idjornada = session["idjornada"]
+
+    idcliente = request.form.get("cliente")
+    idmodopago = request.form.get("modopago")
+    total = float(request.form.get("total", 0))
+
+    productos = request.form.getlist("productos[]")
     cantidades = request.form.getlist("cantidades[]")
     precios = request.form.getlist("precios[]")
-    cortesias = request.form.getlist("cortesias[]")  # "true" o "false"
+    cortesias = request.form.getlist("cortesias[]")
 
     conexion = getConnection()
     cursor = conexion.cursor()
 
-    # -------------------- INSERTAR VENTA --------------------
-    cursor.execute("""
-        INSERT INTO ventas
-        (idjornada, idusuario, idpunto, idclientes, idmodopago, total, descuento_total, fecha_hora, estado)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'OK')
-    """, (
-        1,  # suponiendo jornada activa; en el futuro podrías traer la jornada activa real
-        idusuario,
-        idpunto,
-        cliente_id if cliente_id != "0" else None,
-        idmodopago,
-        total,
-        descuento_total,
-        datetime.now()
-    ))
-
-    idventa = cursor.lastrowid
-
-    # -------------------- INSERTAR DETALLE DE VENTA --------------------
-    for i, producto_id in enumerate(productos_seleccionados):
-        cantidad = int(cantidades[i])
-        precio_unitario = float(precios[i])
-        cortesia = cortesias[i].lower() == "true"
-        subtotal = (precio_unitario * cantidad)
+    try:
+        # ---------------- INSERT VENTA ----------------
         cursor.execute("""
-            INSERT INTO venta_detalle
-            (idventa, idproducto, cantidad, precio_unitario, descuento, subtotal, cortesia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO ventas
+            (idjornada, idusuario, idpunto, idclientes, idmodopago,
+             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,NOW(),'OK','',0)
         """, (
-            idventa,
-            producto_id,
-            cantidad,
-            precio_unitario,
-            0,  # por ahora el descuento por producto se puede calcular después
-            subtotal,
-            cortesia
+            idjornada,
+            idusuario,
+            idpunto,
+            idcliente if idcliente != "0" else None,
+            idmodopago,
+            total,
+            0
         ))
 
-        # -------------------- ACUMULAR PUNTOS --------------------
-        if cliente_id and not cortesia:
-            puntos_ganados = cantidad  # ejemplo: 1 punto por unidad
+        idventa = cursor.lastrowid
+
+        # ---------------- DETALLE DE VENTA ----------------
+        total_puntos = 0
+
+        for i in range(len(productos)):
+            idproducto = productos[i]
+            cantidad = int(cantidades[i])
+            precio = float(precios[i])
+            es_cortesia = cortesias[i] == "true"
+
+            subtotal = 0 if es_cortesia else cantidad * precio
+
             cursor.execute("""
-                INSERT INTO cliente_puntos (idcliente, puntos)
-                VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE puntos = puntos + VALUES(puntos)
-            """, (cliente_id, puntos_ganados))
+                INSERT INTO ventas_detalle
+                (idventa, idproductos, cantidad, precio_unitario, subtotal, cortesia)
+                VALUES (%s,%s,%s,%s,%s,%s)
+            """, (
+                idventa,
+                idproducto,
+                cantidad,
+                precio,
+                subtotal,
+                es_cortesia
+            ))
+
+            # -------- PUNTOS (ejemplo: 1 punto cada $100) --------
+            if not es_cortesia:
+                total_puntos += int(subtotal // 100)
+
+        # ---------------- ACTUALIZAR PUNTOS ----------------
+        cursor.execute("""
+            UPDATE ventas
+            SET puntos_ganados = %s
+            WHERE idventa = %s
+        """, (total_puntos, idventa))
+
+        conexion.commit()
+
+    except Exception as e:
+        conexion.rollback()
+        print("ERROR REGISTRAR VENTA:", e)
+        return redirect(url_for("ventas_home", message="Error al registrar la venta"))
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("ventas_home", message="Venta registrada correctamente"))
+
+#finalizar jornada
+@app.route("/finalizar_jornada", methods=["POST"])
+def finalizar_jornada():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    idjornada = session.get("idjornada")
+
+    if not idjornada:
+        return redirect(url_for("ventas"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        UPDATE jornadas
+        SET estado = 'Cerrado'
+        WHERE idjornada = %s
+    """, (idjornada,))
 
     conexion.commit()
     conexion.close()
 
-    return redirect(url_for("ventas_home", message="Venta registrada correctamente"))
+    session.pop("idjornada", None)
+
+    return redirect(url_for("ventas", message="Jornada finalizada"))
+
+
 
 
 #-------------------------------Clientes----------------------------------

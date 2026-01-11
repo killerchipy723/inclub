@@ -6,18 +6,6 @@
     <title>TicketsJets | Panel</title>
     <link rel="shortcut icon" href="/static/img/logoJetSmall.png" type="image/x-icon">
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="text-white fw-semibold">
-            👤 {{ usuario }}
-            <span class="opacity-75">({{ rol }})</span>
-            <span class="ms-3" id="reloj"></span>
-        </div>
-            <a href="/logout"
-                class="btn btn-danger btn-sm text-white px-3 py-2 mt-3">
-                Cerrar sesión
-            </a>
-    </div>
-
     <!-- Bootstrap LOCAL -->
     <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
 
@@ -70,15 +58,55 @@
             color: #ff1a1a !important;
         }
 
+        .top-bar {
+            background: rgba(0,0,0,0.6);
+            border-bottom: 1px solid rgba(255,0,0,0.3);
+        }
+
         .container {
             margin-top: 60px;
             color: white;
         }
     </style>
 </head>
+
 <script src="/static/js/mensajes.js"></script>
+
 <body>
 
+<!-- ====================== BARRA SUPERIOR ====================== -->
+<div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
+
+    <!-- Usuario / Rol / Reloj -->
+    <div class="fw-semibold">
+        👤 {{ usuario }}
+        <span class="opacity-75">({{ rol }})</span>
+        <span class="ms-3" id="reloj"></span>
+    </div>
+
+    <!-- Jornada + Recaudación -->
+    {% if jornada %}
+    <div class="text-center">
+        <div class="fw-bold text-warning">
+            🟢 Jornada activa: {{ jornada.nombre }}
+        </div>
+        <div class="fw-bold text-success">
+            💰 Recaudación Parcial: $ {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
+
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Logout -->
+    <div>
+        <a href="/logout" class="btn btn-danger btn-sm text-white px-3 py-2">
+            Cerrar sesión
+        </a>
+    </div>
+
+</div>
+
+<!-- ====================== NAVBAR ====================== -->
 <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand" href="/">TicketJets</a>
@@ -91,13 +119,10 @@
             <ul class="navbar-nav">
                 <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
                 <li class="nav-item"><a class="nav-link" href="/ventas">Venta</a></li>
-                
             </ul>
         </div>
     </div>
 </nav>
-
-
 
 <!-- Bootstrap JS LOCAL -->
 <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>

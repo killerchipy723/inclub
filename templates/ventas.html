@@ -4,8 +4,11 @@
 
   <!-- Mensaje -->
   {% if message %}
-  <div class="alert alert-success">{{ message }}</div>
-  {% endif %}
+<div class="alert alert-success" id="mensaje-confirmacion">
+  {{ message }}
+</div>
+{% endif %}
+
 
   <!-- Selección Cliente y Modo de Pago -->
   <div class="row mb-3">
@@ -35,11 +38,11 @@
   <div class="row row-cols-6 g-1" id="productos">
     {% for p in productos %}
     <div class="col">
-      <div class="card text-center p-1 h-100 producto-card" style="font-size: 0.8rem;" 
+      <div class="card text-center p-1 h-90 producto-card" style="font-size: 1rem;" 
            data-id="{{ p.idproductos }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.importe }}">
         <div class="card-body p-1">
-          <p class="card-title mb-0" style="font-size:0.75rem;">{{ p.nombre }}</p>
-          <p class="card-text mb-1" style="font-size:0.7rem;">$ {{ p.importe }}</p>
+          <p class="card-title mb-0" style="font-size:0.90rem;">{{ p.nombre }}</p>
+          <p class="card-text mb-1" style="font-size:0.90rem;">$ {{ p.importe }}</p>
           <button class="btn btn-primary btn-sm p-0 agregar" style="width:100%;">+</button>
         </div>
       </div>
@@ -69,6 +72,16 @@
 </div>
 
 <script>
+    function formatoMoneda(valor) {
+      return new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(valor);
+    }
+</script>
+
+
+<script>
 // ====================== Carrito ======================
 const carrito = [];
 
@@ -84,15 +97,16 @@ function actualizarCarrito() {
       <tr>
         <td>${item.nombre}</td>
         <td><input type="number" class="form-control form-control-sm cantidad" data-index="${index}" value="${item.cantidad}" min="1"></td>
-        <td>${item.precio.toFixed(2)}</td>
-        <td>${subtotal.toFixed(2)}</td>
+        <td>${formatoMoneda(item.precio)}</td>
+        <td>${formatoMoneda(subtotal)}</td>
         <td><input type="checkbox" class="cortesia" data-index="${index}" ${item.cortesia ? 'checked' : ''}></td>
         <td><button class="btn btn-danger btn-sm eliminar" data-index="${index}">X</button></td>
       </tr>
     `;
   });
 
-  document.getElementById("total").textContent = total.toFixed(2);
+  document.getElementById("total").textContent = formatoMoneda(total);
+
 }
 
 // ====================== Agregar productos ======================
@@ -169,6 +183,26 @@ document.getElementById("procesarVenta").addEventListener("click", () => {
   document.body.appendChild(form);
   form.submit();
 });
+</script>
+
+<script>
+      // ====================== Ocultar mensaje al interactuar ======================
+    const mensaje = document.getElementById("mensaje-confirmacion");
+
+    if (mensaje) {
+      const ocultarMensaje = () => {
+        mensaje.style.transition = "opacity 0.3s";
+        mensaje.style.opacity = "0";
+        setTimeout(() => mensaje.remove(), 300);
+      };
+
+      // Cualquier click en la pantalla
+      document.addEventListener("click", ocultarMensaje, { once: true });
+
+      // Cualquier tecla
+      document.addEventListener("keydown", ocultarMensaje, { once: true });
+    }
+
 </script>
 
 {% include '/pie.html' %}
