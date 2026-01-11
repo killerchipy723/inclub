@@ -22,6 +22,16 @@
             <input type="text" name="cuil" class="form-control" required>
           </div>
 
+          <div class="col">
+            <label>Correo Electrónico</label>
+            <input type="email" name="correo" class="form-control mb-2" required>
+          </div>
+
+          <div class="col">
+            <label>Fecha de Nacimiento</label>
+            <input type="date" name="fecha_nacimiento" class="form-control mb-2">
+          </div>
+
           <div class="col d-flex align-items-end">
             <button class="btn btn-primary w-100" type="submit">
               Registrar
@@ -38,6 +48,8 @@
             <th>NOMBRE DEL CLIENTE</th>
             <th>N° DE DOCUMENTO</th>
             <th>CUIT/CUIL</th>
+            <th>CORREO</th>
+            <th>FECHA NACIMIENTO</th>
             <th>ACCIONES</th>
           </tr>
         </thead>
@@ -49,6 +61,8 @@
             <td>{{ alu.apenomb }}</td>
             <td>{{ alu.dni }}</td>
             <td>{{ alu.cuil }}</td>
+            <td>{{ alu.correo }}</td>
+            <td>{{ alu.fecha_nacimiento }}</td>
             <td>
               <button class="btn btn-warning btn-sm"
                       data-bs-toggle="modal"
@@ -96,6 +110,14 @@
           <label>CUIT</label>
           <input type="text" name="cuil" class="form-control mb-2"
                  value="{{ alu.cuil }}" required>
+
+          <label>Correo Electrónico</label>
+          <input type="email" name="correo" class="form-control mb-2"
+                 value="{{ alu.correo }}" required>
+
+          <label>Fecha de Nacimiento</label>
+          <input type="date" name="fecha_nacimiento" class="form-control mb-2"
+                 value="{{ alu.fecha_nacimiento }}">
         </div>
 
         <div class="modal-footer">

@@ -297,14 +297,51 @@ def delete_usuario_punto(id):
 
 
 #--------------------------------------Ventas-------------------------------------
-@app.route("/ventas")
-def ventas():
+
+
+@app.route("/ventas", methods=["GET"])
+def ventas_home():
     if "id" not in session:
         return redirect(url_for("home"))
 
+    message = request.args.get('message')
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # -------------------- CLIENTES --------------------
+    cursor.execute("SELECT * FROM clientes")
+    clientes = cursor.fetchall()
+
+    # -------------------- MODOS DE PAGO --------------------
+    cursor.execute("SELECT * FROM modopago")
+    modopago = cursor.fetchall()
+
+    # -------------------- PRODUCTOS --------------------
+    cursor.execute("""
+        SELECT p.idproductos, p.nombre, p.importe
+        FROM productos p
+        JOIN jornadas_productos jp ON p.idproductos = jp.idproducto
+        JOIN jornadas j ON jp.idjornada = j.idjornada
+        WHERE p.estado='Activo' AND j.estado='Activo'
+        ORDER BY p.nombre
+    """)
+    productos = cursor.fetchall()
+
+    # -------------------- PUNTOS DEL CLIENTE --------------------
+    cursor.execute("SELECT idclientes, apenomb FROM clientes")
+    clientes_puntos = cursor.fetchall()
+
+    conexion.close()
+
     return render_template("ventas.html",
                            usuario=session["nombre"],
-                           rol=session["rol"])
+                           rol=session["rol"],
+                           message=message,
+                           clientes=clientes,
+                           modopago=modopago,
+                           productos=productos,
+                           clientes_puntos=clientes_puntos)
 
 
 @app.route("/registrar_venta", methods=["POST"])
@@ -312,84 +349,154 @@ def registrar_venta():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    cliente = request.form["cliente"]
-    total = request.form["total"]
+    cliente_id = request.form.get("cliente")  # puede ser NULL para consumidor final
+    idmodopago = request.form["modopago"]
+    idpunto = request.form["punto"]           # si tenés puntos de venta
+    idusuario = session["id"]
+    total = float(request.form["total"])
+    descuento_total = float(request.form.get("descuento_total", 0))
+    productos_seleccionados = request.form.getlist("productos[]")
+    cantidades = request.form.getlist("cantidades[]")
+    precios = request.form.getlist("precios[]")
+    cortesias = request.form.getlist("cortesias[]")  # "true" o "false"
 
     conexion = getConnection()
     cursor = conexion.cursor()
 
+    # -------------------- INSERTAR VENTA --------------------
     cursor.execute("""
         INSERT INTO ventas
-        (cliente, total, vendedor_id, vendedor_nombre, fecha_hora)
-        VALUES (%s, %s, %s, %s, %s)
+        (idjornada, idusuario, idpunto, idclientes, idmodopago, total, descuento_total, fecha_hora, estado)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'OK')
     """, (
-        cliente,
+        1,  # suponiendo jornada activa; en el futuro podrías traer la jornada activa real
+        idusuario,
+        idpunto,
+        cliente_id if cliente_id != "0" else None,
+        idmodopago,
         total,
-        session["id"],
-        session["nombre"],
+        descuento_total,
         datetime.now()
     ))
 
-    conexion.commit()
-    
+    idventa = cursor.lastrowid
 
-    return redirect(url_for("ventas"))
+    # -------------------- INSERTAR DETALLE DE VENTA --------------------
+    for i, producto_id in enumerate(productos_seleccionados):
+        cantidad = int(cantidades[i])
+        precio_unitario = float(precios[i])
+        cortesia = cortesias[i].lower() == "true"
+        subtotal = (precio_unitario * cantidad)
+        cursor.execute("""
+            INSERT INTO venta_detalle
+            (idventa, idproducto, cantidad, precio_unitario, descuento, subtotal, cortesia)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            idventa,
+            producto_id,
+            cantidad,
+            precio_unitario,
+            0,  # por ahora el descuento por producto se puede calcular después
+            subtotal,
+            cortesia
+        ))
+
+        # -------------------- ACUMULAR PUNTOS --------------------
+        if cliente_id and not cortesia:
+            puntos_ganados = cantidad  # ejemplo: 1 punto por unidad
+            cursor.execute("""
+                INSERT INTO cliente_puntos (idcliente, puntos)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE puntos = puntos + VALUES(puntos)
+            """, (cliente_id, puntos_ganados))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for("ventas_home", message="Venta registrada correctamente"))
+
 
 #-------------------------------Clientes----------------------------------
 #ruta principal de clientes
-@app.route("/clientes",methods=['GET'])
-def home_clientes():
-    if "id" not in session['rol']!="Administrador":
-        return redirect(url_for('home'))
-    
-    conexion = getConnection()
-    query = 'select * from clientes'
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
-    cursor.execute(query)
-    data = cursor.fetchall()
-    message = request.args.get('message')  # 👈 ACA SÍ
-    return render_template("clientes.html",
-                           clientes=data,
-                           message = message,
-                           usuario=session["nombre"],
-                           rol=session["rol"])
 
-#Ruta para guardar clientes
-@app.route("/guardar_Clientes",methods=['POST'])
+
+# Ruta principal clientes
+@app.route("/clientes", methods=['GET'])
+def home_clientes():
+    # Solo Administrador
+    if "id" not in session or session['rol'] != "Administrador":
+        return redirect(url_for('home'))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT * FROM clientes")
+    data = cursor.fetchall()
+    message = request.args.get('message')  # 👈 mensaje de confirmación
+    conexion.close()
+
+    return render_template(
+        "clientes.html",
+        clientes=data,
+        message=message,
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+
+
+# Ruta para guardar clientes
+@app.route("/guardar_Clientes", methods=['POST'])
 def guardar_Clientes():
-    query = 'insert into clientes(apenomb,dni,cuil)VALUES(%s,%s,%s)'
-    apenomb = request.form['apenomb']
+    if "id" not in session:
+        return redirect(url_for('home'))
+
+    apenomb = request.form['apenomb'].upper()
     dni = request.form['dni']
     cuil = request.form['cuil']
+    correo = request.form['correo']
+    fecha_nacimiento = request.form['fecha_nacimiento'] or None  # Puede estar vacío
+
+    query = """
+        INSERT INTO clientes (apenomb, dni, cuil, correo, fecha_nacimiento)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+
     conexion = getConnection()
     cursor = conexion.cursor()
-    cursor.execute(query,(apenomb,dni,cuil))
+    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento))
     conexion.commit()
     conexion.close()
-    msg = "Registro Exitoso de Cliente"
-    return redirect(url_for('home_clientes',message = 'Cliente Registrado Correctamente'))
+
+    return redirect(url_for('home_clientes', message='Cliente Registrado Correctamente'))
 
 
-#Ruta para modificar Clientes
+# Ruta para modificar clientes
 @app.route("/Update_Clientes/<int:id>", methods=["POST"])
 def update_Clientes(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    apenomb = request.form["apenomb"]
+    apenomb = request.form["apenomb"].upper()
     dni = request.form["dni"]
-    cuil = request.form["cuil"]   
-    query = 'UPDATE clientes SET apenomb=%s, dni=%s, cuil=%s WHERE idclientes=%s'
+    cuil = request.form["cuil"]
+    correo = request.form["correo"]
+    fecha_nacimiento = request.form["fecha_nacimiento"] or None
+
+    query = """
+        UPDATE clientes
+        SET apenomb=%s, dni=%s, cuil=%s, correo=%s, fecha_nacimiento=%s
+        WHERE idclientes=%s
+    """
+
     conexion = getConnection()
     cursor = conexion.cursor()
-    cursor.execute(query,(apenomb,dni,cuil,id))    
+    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento, id))
     conexion.commit()
     conexion.close()
 
-    return redirect(url_for('home_clientes',message = 'Cliente Actualizado Correctamente'))
+    return redirect(url_for('home_clientes', message='Cliente Actualizado Correctamente'))
 
 
-#Ruta para Eliminar Clientes
+# Ruta para eliminar clientes
 @app.route("/delete_Clientes/<int:id>")
 def eliminar_Clientes(id):
     if "id" not in session:
@@ -400,7 +507,9 @@ def eliminar_Clientes(id):
     cursor.execute("DELETE FROM clientes WHERE idclientes=%s", (id,))
     conexion.commit()
     conexion.close()
-    return redirect(url_for('home_clientes',message = 'Cliente Eliminado Correctamente'))
+
+    return redirect(url_for('home_clientes', message='Cliente Eliminado Correctamente'))
+
 # ------------------------------Jornadas----------------------------------
 
 # ruta jornadas
@@ -756,6 +865,103 @@ def delete_puntos(id):
         )
     )
 
+#-----------------------------Modo Pago----------------------------------
+#ruta principal modo de pago
+@app.route("/Modopago", methods=["GET"])
+def home_Modopago():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("SELECT * FROM modopago")
+    data = cursor.fetchall()
+
+    message = request.args.get("message")
+
+    conexion.close()
+
+    return render_template(
+        "modopago.html",
+        modo=data,
+        message=message,
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+
+# ruta para guardar modo de pago
+@app.route("/guardar_Modopago", methods=["POST"])
+def save_Modopago():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    modo = request.form["modopago"].upper()
+    estado = request.form["estado"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        INSERT INTO modopago (modo, estado)
+        VALUES (%s, %s)
+    """, (modo, estado))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for("home_Modopago", message="Modo de Pago registrado correctamente")
+    )
+
+
+# ruta para actualizar modo de pago
+@app.route("/Update_Modopago/<int:id>", methods=["POST"])
+def update_Modopago(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    modo = request.form["modo"].upper()
+    estado = request.form["estado"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        UPDATE modopago
+        SET modo = %s, estado = %s
+        WHERE idmodopago = %s
+    """, (modo, estado, id))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for("home_Modopago", message="Modo de Pago actualizado correctamente")
+    )
+
+#ruta para eliminar modo de pago
+@app.route("/delete_Modopago/<int:id>")
+def delete_Modopago(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "DELETE FROM modopago WHERE idmodopago = %s",
+        (id,)
+    )
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(
+        url_for("home_Modopago", message="Modo de Pago eliminado correctamente")
+    )
+
+
 
 
 
@@ -763,4 +969,4 @@ def delete_puntos(id):
 
 #-------------------------------Arranque-----------------------------------
 if __name__=='__main__':
-    app.run(debug=True,host='0.0.0.0')
+    app.run(debug=True,host='0.0.0.0',port=6900)

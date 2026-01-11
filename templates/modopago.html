@@ -1,0 +1,139 @@
+{% include '/cabecera.html' %}
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      <form action="/guardar_Modopago" method="post">
+        <div class="row mb-3">
+          <div class="col">
+            <label>Modo de Pago</label>
+            <input type="text" name="modopago" class="form-control mb-2 text-uppercase" required>
+          </div>
+
+          <div class="col">
+            <label>Estado</label>
+            <select name="estado" class="form-control"  required>
+                <option value="" disabled selected >---Seleccione un Estado---</option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>          
+
+          <div class="col d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">
+              Registrar
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {% if message %}
+      <div class="alert alert-primary">
+        {{ message }}
+      </div>
+      {% endif %}
+
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Modo de Pago</th>
+            <th>Estado</th>            
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for alu in modo %}
+          <tr>
+            <td>{{ alu.idmodopago }}</td>
+            <td>{{ alu.modo }}</td>      
+            <td>{{ alu.estado }}</td>        
+            <td>
+              <button class="btn btn-warning btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ alu.idmodopago }}">
+                Editar
+              </button>
+
+              <button class="btn btn-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal2{{ alu.idmodopago }}">
+                Eliminar
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES EDITAR / ELIMINAR -->
+{% for alu in modo %}
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="modal{{ alu.idmodopago }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="/Update_Modopago/{{ alu.idmodopago }}" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar: {{ alu.modo }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <label>Modo de Pago</label>
+          <input type="text" name="modo" class="form-control mb-2 text-uppercase"
+                 value="{{ alu.modo }}" required>
+
+
+          <select name="estado" class="form-control" required>
+            <option  value="{{alu.estado}}">{{alu.estado}}</option>
+            <option value="Inactivo">Inactivo</option>
+            <option value="Activo">Activo</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="submit">Actualizar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="modal2{{ alu.idmodopago }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Eliminar: {{ alu.modo }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        ¿Está seguro que desea eliminar este Modo de Pago?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <a href="/delete_Modopago/{{ alu.idmodopago }}" class="btn btn-danger">Eliminar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endfor %}
+
+
+
+
+
+
+{% include '/pie.html' %}
