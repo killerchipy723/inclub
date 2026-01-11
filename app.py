@@ -399,7 +399,13 @@ def registrar_venta():
 
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
-    total = float(request.form.get("total", 0))
+    total_str = request.form.get("total", "0")
+
+# Quita separador de miles y cambia coma por punto
+    total_str = total_str.replace(".", "").replace(",", ".")
+
+    total = float(total_str)
+
 
     productos = request.form.getlist("productos[]")
     cantidades = request.form.getlist("cantidades[]")
