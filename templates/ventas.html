@@ -12,17 +12,19 @@
 
     <!-- ================= PRODUCTOS ================= -->
     <section class="productos-pos flex-fill me-2">
-      <div class="row row-cols-7 g-1">
+      <div class="row g-2">
 
         {% for p in productos %}
-        <div class="col">
+        <div class="col-auto">
           <div class="card producto-card text-center p-1 bg-dark text-white"
+               style="width:120px;"  
                data-id="{{ p.idproductos }}"
                data-nombre="{{ p.nombre }}"
                data-precio="{{ p.importe }}">
 
-            <div class="card-body p-1">
-              <div class="nombre-producto small fw-semibold">
+            <div class="card-body p-1 d-flex flex-column justify-content-between">
+              <!-- NOMBRE DEL PRODUCTO CON FUENTE MÁS PEQUEÑA -->
+              <div class="nombre-producto fw-semibold text-truncate" style="font-size:0.6rem;">
                 {{ p.nombre }}
               </div>
 
@@ -30,7 +32,7 @@
                 $ {{ p.importe }}
               </div>
 
-              <button class="btn btn-success btn-sm agregar w-100 mt-1">
+              <button class="btn btn-success btn-sm agregar mt-1">
                 +
               </button>
             </div>
@@ -46,14 +48,24 @@
 
       <!-- DATOS VENTA -->
       <div class="datos-venta mb-2">
-        <select id="cliente" class="form-select form-select-sm mb-1">
-          <option value="0">Consumidor Final</option>
-          {% for c in clientes %}
-          <option value="{{ c.idclientes }}">{{ c.apenomb }}</option>
-          {% endfor %}
-        </select>
+        <div class="cliente-autocomplete position-relative">
+            <input type="text"
+                  id="clienteInput"
+                  class="form-control form-control-sm"
+                  placeholder="Buscar cliente por nombre o DNI"
+                  autocomplete="off">
 
-        <select id="modopago" class="form-select form-select-sm">
+            <input type="hidden" id="idcliente" value="0">
+            <div id="listaClientes" class="list-group position-absolute w-100"></div>
+
+            <button class="btn btn-outline-success btn-sm mt-1 w-100"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalCliente">
+              ➕ Nuevo cliente
+            </button>
+        </div>
+
+        <select id="modopago" class="form-select form-select-sm mt-2">
           {% for m in modopago %}
           <option value="{{ m.idmodopago }}">{{ m.modo }}</option>
           {% endfor %}
@@ -89,6 +101,41 @@
       </div>
 
     </aside>
+  </div>
+</div>
+
+<!-- MODAL PARA AGREGAR CLIENTES -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="/guardar_ClientesMODAL" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">AGREGAR NUEVOS CLIENTES</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <label>Apellido y Nombre</label>
+          <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" required>
+
+          <label>N° de Documento</label>
+          <input type="number" name="dni" class="form-control mb-2" required>
+
+          <label>CUIT</label>
+          <input type="text" name="cuil" class="form-control mb-2" required>
+
+          <label>Correo Electrónico</label>
+          <input type="email" name="correo" class="form-control mb-2" required>
+
+          <label>Fecha de Nacimiento</label>
+          <input type="date" name="fecha_nacimiento" class="form-control mb-2" required>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="submit">GUARDAR</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 

@@ -1,0 +1,84 @@
+{% include '/cabecera.html' %}
+
+<div class="container-fluid mt-4">
+
+  <h3 class="text-white mb-3">
+    Administración de Jornada: <strong>{{ jornada.nombre }}</strong>
+  </h3>
+
+  <div class="row">
+
+    <!-- ================= PUNTOS DE VENTA ================= -->
+    <div class="col-md-6">
+      <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white">
+          Puntos de Venta
+        </div>
+        <div class="card-body">
+
+          {% for p in puntos_venta %}
+          <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <span>{{ p.nombre }}</span>
+
+            {% if p.asignado %}
+              <span class="badge bg-success">Asignado</span>
+            {% else %}
+              <a href="/agregar_punto_jornada/{{ jornada.idjornada }}/{{ p.idpunto }}"
+                 class="btn btn-sm btn-outline-primary">
+                Agregar
+              </a>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PRODUCTOS ================= -->
+    <div class="col-md-6">
+      <div class="card shadow mb-4">
+        <div class="card-header bg-success text-white">
+          Productos
+        </div>
+        <div class="card-body">
+
+          {% for pr in productos %}
+          <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <span>{{ pr.nombre }} (${{ pr.importe }})</span>
+
+            {% if pr.asignado %}
+              <span class="badge bg-success">Asignado</span>
+            {% else %}
+              <a href="/agregar_producto_jornada/{{ jornada.idjornada }}/{{ pr.idproductos }}"
+                 class="btn btn-sm btn-outline-success">
+                Agregar
+              </a>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <a href="/Jornadas_Admin"
+   class="btn btn-secondary btn-volver-fijo">
+  ⬅ Volver
+</a>
+<style>
+    .btn-volver-fijo {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+</style>
+
+</div>
+
+{% include '/pie.html' %}

@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="container-fluid">
 
         <a class="navbar-brand" href="/">TiketJets</a>
-        <img src="/static/img/logoJetSmall.png" alt="logoJet" height="32">
+        <img src="/static/img/logoJetSmall.png" alt="logoJet" height="32" class="ms-2">
 
         <button class="navbar-toggler" type="button"
                 data-bs-toggle="collapse"
@@ -62,30 +62,51 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="collapse navbar-collapse justify-content-end" id="menu">
             <ul class="navbar-nav">
 
-                <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
-                <li class="nav-item"><a class="nav-link" href="/Jornadas">Jornadas</a></li>
-                <li class="nav-item"><a class="nav-link" href="/Productos">Productos</a></li>               
-                <li class="nav-item"><a class="nav-link" href="#">Informes</a></li>
+                <!-- INICIO -->
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Inicio</a>
+                </li>
+
+                <!-- JORNADAS -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        Jornadas
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="/Jornadas">
+                                Crear Nueva Jornada
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/Jornadas_Admin">
+                                Administrar jornadas
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- PRODUCTOS -->
+                <li class="nav-item">
+                    <a class="nav-link" href="/Productos">Productos</a>
+                </li>
+
+                <!-- INFORMES -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Informes</a>
+                </li>
 
                 <!-- ADMINISTRACIÓN -->
-        <li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#">
-        Administración
-    </a>
-    <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="/clientes">Clientes</a></li>
-        <li><a class="dropdown-item" href="/usuario">Usuarios</a></li>
-        <li><a class="dropdown-item" href="/puntos_venta">Puntos de Venta</a></li>
-        <li><a class="dropdown-item" href="/usuarios_puntos">Asignación de Usuarios a Puntos</a></li>
-        <li><a class="dropdown-item" href="/Modopago">Modo de Pago</a></li>
-    </ul>
-</li>
-
-
-
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        Administración
+                    </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="/clientes">Clientes</a></li>
                         <li><a class="dropdown-item" href="/usuario">Usuarios</a></li>
+                        <li><a class="dropdown-item" href="/puntos_venta">Puntos de Venta</a></li>
+                        <li><a class="dropdown-item" href="/usuarios_puntos">Asignación de Usuarios a Puntos</a></li>
+                        <li><a class="dropdown-item" href="/Modopago">Modo de Pago</a></li>
                     </ul>
                 </li>
 
@@ -94,6 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     </div>
 </nav>
+
 
 <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/mensajes.js"></script>

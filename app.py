@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session,jsonify
 import uuid
 from db import getConnection
 from datetime import datetime
@@ -605,48 +605,103 @@ def eliminar_Clientes(id):
 
     return redirect(url_for('home_clientes', message='Cliente Eliminado Correctamente'))
 
+#Buscar Clientes
+@app.route("/buscar_clientes")
+def buscar_clientes():
+    q = request.args.get("q", "").strip()
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT idclientes, apenomb, dni
+        FROM clientes
+        WHERE apenomb LIKE %s
+           OR dni LIKE %s
+        ORDER BY apenomb
+        LIMIT 10
+    """, (f"%{q}%", f"%{q}%"))
+
+    clientes = cursor.fetchall()
+    conexion.close()
+
+    return jsonify(clientes)
+
+#Guardar Clientes Modal
+@app.route("/guardar_ClientesMODAL", methods=['POST'])
+def guardar_ClientesMOD():
+    if "id" not in session:
+        return redirect(url_for('home'))
+
+    apenomb = request.form['apenomb'].upper()
+    dni = request.form['dni']
+    cuil = request.form['cuil']
+    correo = request.form['correo']
+    fecha_nacimiento = request.form['fecha_nacimiento'] or None  # Puede estar vacío
+
+    query = """
+        INSERT INTO clientes (apenomb, dni, cuil, correo, fecha_nacimiento)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento))
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for('ventas_home', message='Cliente Registrado Correctamente'))
+
 # ------------------------------Jornadas----------------------------------
 
-# ruta jornadas
-@app.route("/Jornadas", methods=['GET'])
-def home_Jornadas():
+# =====================================================
+# LISTADO GENERAL DE JORNADAS
+# =====================================================
+@app.route("/Jornadas", methods=["GET"])
+def jornadas_listado():
     if "id" not in session:
         return redirect(url_for("home"))
 
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # Jornadas
-    cursor.execute("SELECT * FROM jornadas")
+    cursor.execute("""
+        SELECT idjornada, nombre, finicio, ffinal, estado
+        FROM jornadas
+        ORDER BY idjornada DESC
+    """)
     jornadas = cursor.fetchall()
 
-    # 👉 Puntos de venta (equipos)
-    cursor.execute("SELECT idpunto, nombre FROM puntos_venta WHERE estado='Activo'")
+    cursor.execute("""
+        SELECT idpunto, nombre
+        FROM puntos_venta
+        WHERE estado='Activo'
+    """)
     puntos_venta = cursor.fetchall()
 
-    # 👉 Productos
-    cursor.execute("SELECT idproductos, nombre, importe FROM productos WHERE estado='Activo'")
+    cursor.execute("""
+        SELECT idproductos, nombre, importe
+        FROM productos
+        WHERE estado='Activo'
+    """)
     productos = cursor.fetchall()
 
     conexion.close()
 
-    message = request.args.get('message')
-
     return render_template(
         "jornadas.html",
         jornadas=jornadas,
-        puntos_venta=puntos_venta,   # 👈 ESTO FALTABA
-        productos=productos,         # 👈 Y ESTO TAMBIÉN
-        message=message,
+        puntos_venta=puntos_venta,
+        productos=productos,
         usuario=session["nombre"],
         rol=session["rol"]
     )
 
-
-# Ruta para guardar Jornadas
+# =====================================================
+# CREAR JORNADA
+# =====================================================
 @app.route("/guardar_Jornadas", methods=["POST"])
-def save_Jornadas():
-    # Seguridad: usuario logueado
+def jornadas_crear():
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -654,7 +709,6 @@ def save_Jornadas():
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
     try:
-        # ================= DATOS JORNADA =================
         nombre = request.form["nombre"].upper()
         clave = request.form["clave"]
         finicio = request.form["finicio"]
@@ -665,104 +719,220 @@ def save_Jornadas():
             VALUES (%s, %s, %s, %s, 'Activo')
         """, (nombre, clave, finicio, ffinal))
 
-        # ID de la jornada recién creada
         idjornada = cursor.lastrowid
 
-        # ================= EQUIPOS (PUNTOS DE VENTA) =================
-        if request.form.get("equipos_todos"):
+        # --------- EQUIPOS ---------
+        equipos = request.form.getlist("equipos[]")
+        for e in equipos:
             cursor.execute("""
-                SELECT idpunto
-                FROM puntos_venta
-                WHERE estado = 'Activo'
-            """)
-            puntos = cursor.fetchall()
+                INSERT INTO jornadas_puntos (idjornada, idpunto)
+                VALUES (%s, %s)
+            """, (idjornada, e))
 
-            for p in puntos:
-                cursor.execute("""
-                    INSERT INTO jornadas_puntos (idjornada, idpunto)
-                    VALUES (%s, %s)
-                """, (idjornada, p["idpunto"]))
-        else:
-            equipos = request.form.getlist("equipos[]")
-            for e in equipos:
-                cursor.execute("""
-                    INSERT INTO jornadas_puntos (idjornada, idpunto)
-                    VALUES (%s, %s)
-                """, (idjornada, e))
-
-        # ================= PRODUCTOS =================
-        if request.form.get("productos_todos"):
+        # --------- PRODUCTOS ---------
+        productos = request.form.getlist("productos[]")
+        for p in productos:
             cursor.execute("""
-                SELECT idproductos
-                FROM productos
-                WHERE estado = 'Activo'
-            """)
-            productos = cursor.fetchall()
-
-            for pr in productos:
-                cursor.execute("""
-                    INSERT INTO jornadas_productos (idjornada, idproducto)
-                    VALUES (%s, %s)
-                """, (idjornada, pr["idproductos"]))
-        else:
-            productos = request.form.getlist("productos[]")
-            for pr in productos:
-                cursor.execute("""
-                    INSERT INTO jornadas_productos (idjornada, idproducto)
-                    VALUES (%s, %s)
-                """, (idjornada, pr))
+                INSERT INTO jornadas_productos (idjornada, idproducto)
+                VALUES (%s, %s)
+            """, (idjornada, p))
 
         conexion.commit()
 
     except Exception as e:
         conexion.rollback()
-        print("❌ Error al guardar jornada:", e)
-        return redirect(
-            url_for("home_Jornadas", message="Error al crear la jornada")
-        )
+        print("❌ Error al crear jornada:", e)
+        return redirect(url_for("jornadas_listado"))
 
     finally:
         conexion.close()
 
-    return redirect(
-        url_for("home_Jornadas", message="Jornada creada correctamente")
-    )
-
-
-
-#Ruta para modificar Jornadas
-@app.route("/Update_Jornadas/<int:id>", methods=["POST"])
-def update_Jornada(id):
+    return redirect(url_for("jornadas_listado"))
+# =====================================================
+# ACTUALIZAR JORNADA
+# =====================================================
+@app.route("/Update_Jornadas/<int:idjornada>", methods=["POST"])
+def jornadas_actualizar(idjornada):
     if "id" not in session:
         return redirect(url_for("home"))
 
     nombre = request.form["nombre"]
     clave = request.form["clave"]
-    finicio = request.form["finicio"]  
-    ffinal = request.form["ffinal"]  
-    
-    query = 'UPDATE jornadas SET nombre=%s, clave=%s, finicio=%s,ffinal=%s WHERE idclientes=%s'
+    finicio = request.form["finicio"]
+    ffinal = request.form["ffinal"]
+
     conexion = getConnection()
     cursor = conexion.cursor()
-    cursor.execute(query,(nombre,clave,finicio,ffinal,id))    
+
+    cursor.execute("""
+        UPDATE jornadas
+        SET nombre = %s,
+            clave = %s,
+            finicio = %s,
+            ffinal = %s
+        WHERE idjornada = %s
+    """, (nombre, clave, finicio, ffinal, idjornada))
+
     conexion.commit()
     conexion.close()
 
-    return redirect(url_for("home_Jornadas",message='Registro Actualizado Correctamente'))
+    return redirect(url_for("jornadas_admin"))
 
-#Ruta para Eliminar Jornadas
-@app.route("/delete_Jornadas/<int:id>")
-def delete_jornada(id):
+
+# =====================================================
+# LISTADO / ADMINISTRACIÓN DE JORNADAS
+# =====================================================
+@app.route("/Jornadas_Admin")
+def jornadas_admin():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT 
+            idjornada,
+            nombre,
+            clave,
+            finicio,
+            ffinal,
+            estado
+        FROM jornadas
+        ORDER BY idjornada DESC
+    """)
+    jornadas = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "jornadas_admin.html",
+        jornadas=jornadas,
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+
+
+# =====================================================
+# ADMINISTRAR JORNADA (DETALLE)
+# =====================================================
+@app.route("/Jornadas_Admin/<int:idjornada>")
+def jornadas_admin_detalle(idjornada):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # -----------------------------
+    # JORNADA SELECCIONADA
+    # -----------------------------
+    cursor.execute("""
+        SELECT *
+        FROM jornadas
+        WHERE idjornada = %s
+    """, (idjornada,))
+    jornada = cursor.fetchone()
+
+    if not jornada:
+        conexion.close()
+        return redirect(url_for("jornadas_admin"))
+
+    # -----------------------------
+    # PUNTOS DE VENTA
+    # -----------------------------
+    cursor.execute("""
+        SELECT 
+            pv.idpunto,
+            pv.nombre,
+            IF(jp.id IS NULL, 0, 1) AS asignado
+        FROM puntos_venta pv
+        LEFT JOIN jornadas_puntos jp
+            ON pv.idpunto = jp.idpunto
+            AND jp.idjornada = %s
+        WHERE pv.estado = 'Activo'
+        ORDER BY pv.nombre
+    """, (idjornada,))
+    puntos_venta = cursor.fetchall()
+
+    # -----------------------------
+    # PRODUCTOS
+    # -----------------------------
+    cursor.execute("""
+        SELECT 
+            p.idproductos,
+            p.nombre,
+            p.importe,
+            IF(jpr.id IS NULL, 0, 1) AS asignado
+        FROM productos p
+        LEFT JOIN jornadas_productos jpr
+            ON p.idproductos = jpr.idproducto
+            AND jpr.idjornada = %s
+        WHERE p.estado = 'Activo'
+        ORDER BY p.nombre
+    """, (idjornada,))
+    productos = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "jornada_administrar.html",
+        jornada=jornada,
+        puntos_venta=puntos_venta,
+        productos=productos,
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+
+
+# =====================================================
+# AGREGAR PUNTO DE VENTA A JORNADA
+# =====================================================
+@app.route("/agregar_punto_jornada/<int:idjornada>/<int:idpunto>")
+def agregar_punto_jornada(idjornada, idpunto):
     if "id" not in session:
         return redirect(url_for("home"))
 
     conexion = getConnection()
     cursor = conexion.cursor()
-    cursor.execute("DELETE FROM jornadas WHERE idjornada=%s", (id,))
+
+    cursor.execute("""
+        INSERT IGNORE INTO jornadas_puntos (idjornada, idpunto)
+        VALUES (%s, %s)
+    """, (idjornada, idpunto))
+
     conexion.commit()
     conexion.close()
 
-    return redirect(url_for("home_Jornadas",message ='Jornada eliminada correctamente'))
+    return redirect(f"/Jornadas_Admin/{idjornada}")
+
+
+# =====================================================
+# AGREGAR PRODUCTO A JORNADA
+# =====================================================
+@app.route("/agregar_producto_jornada/<int:idjornada>/<int:idproducto>")
+def agregar_producto_jornada(idjornada, idproducto):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        INSERT IGNORE INTO jornadas_productos (idjornada, idproducto)
+        VALUES (%s, %s)
+    """, (idjornada, idproducto))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(f"/Jornadas_Admin/{idjornada}")
+
+
+
+
+
+
 
 #-----------------------------Productos----------------------------------
 #Ruta Principal de productos

@@ -1,0 +1,134 @@
+{% include '/cabecera.html' %}
+
+<div class="container mt-3" style="max-width:1200px;">
+
+  <h5 class="mb-2 text-white">Administración de Jornadas</h5>
+
+  <div class="card shadow-sm">
+    <div class="card-body p-2">
+
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-hover align-middle mb-0">
+
+          <thead class="table-dark text-center">
+            <tr>
+              <th style="width:50px;">ID</th>
+              <th style="width:50px;">Evento</th>
+              <th style="width:80px;">Clave</th>
+              <th style="width:95px;">Inicio</th>
+              <th style="width:95px;">Fin</th>
+              <th style="width:90px;">Estado</th>
+              <th style="width:180px;">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for j in jornadas %}
+            <tr class="{% if j.estado|lower == 'activo' %}table-success{% else %}table-secondary{% endif %}">
+
+              <td class="text-center">{{ j.idjornada }}</td>
+
+              <td class="text-truncate" style="max-width:260px;">
+                {{ j.nombre }}
+              </td>
+
+              <td class="text-center">{{ j.clave }}</td>
+              <td class="text-center">{{ j.finicio }}</td>
+              <td class="text-center">{{ j.ffinal }}</td>
+
+              <td class="text-center">
+                {% if j.estado|lower == 'activo' %}
+                  <span class="badge bg-success">ACTIVA</span>
+                {% else %}
+                  <span class="badge bg-secondary">FINALIZADA</span>
+                {% endif %}
+              </td>
+
+              <td class="text-center">
+
+                <div class="btn-group btn-group-sm" role="group">
+
+                  <a href="/Jornadas_Admin/{{ j.idjornada }}"
+                     class="btn btn-primary">
+                    Admin
+                  </a>
+
+                  <button class="btn btn-warning"
+                          data-bs-toggle="modal"
+                          data-bs-target="#modalEdit{{ j.idjornada }}">
+                    Editar
+                  </button>
+
+                  {% if j.estado|lower == 'activo' %}
+                  <a href="/finalizar_jornada/{{ j.idjornada }}"
+                     class="btn btn-danger"
+                     onclick="return confirm('¿Finalizar jornada?')">
+                    Finalizar
+                  </a>
+                  {% endif %}
+
+                </div>
+
+              </td>
+
+            </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODALES EDITAR ================= -->
+{% for j in jornadas %}
+<div class="modal fade" id="modalEdit{{ j.idjornada }}" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+
+      <form action="/Update_Jornadas/{{ j.idjornada }}" method="post">
+
+        <div class="modal-header bg-warning py-2">
+          <h6 class="modal-title">Editar Jornada</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body py-2">
+
+          <label class="form-label small">Nombre</label>
+          <input type="text" name="nombre"
+                 class="form-control form-control-sm mb-2"
+                 value="{{ j.nombre }}" required>
+
+          <label class="form-label small">Clave</label>
+          <input type="text" name="clave"
+                 class="form-control form-control-sm mb-2"
+                 value="{{ j.clave }}" required>
+
+          <label class="form-label small">Inicio</label>
+          <input type="date" name="finicio"
+                 class="form-control form-control-sm mb-2"
+                 value="{{ j.finicio }}" required>
+
+          <label class="form-label small">Fin</label>
+          <input type="date" name="ffinal"
+                 class="form-control form-control-sm"
+                 value="{{ j.ffinal }}" required>
+
+        </div>
+
+        <div class="modal-footer py-2">
+          <button class="btn btn-warning btn-sm w-100">
+            Actualizar
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% include '/pie.html' %}

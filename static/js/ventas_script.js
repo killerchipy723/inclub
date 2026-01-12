@@ -125,3 +125,34 @@ document.getElementById("procesarVenta").addEventListener("click", () => {
       document.addEventListener("keydown", ocultarMensaje, { once: true });
     }
 
+    // buscar clientes
+const clienteInput = document.getElementById("clienteInput");
+const listaClientes = document.getElementById("listaClientes");
+const idclienteInput = document.getElementById("idcliente");
+
+clienteInput.addEventListener("input", async () => {
+    const q = clienteInput.value.trim();
+
+    listaClientes.innerHTML = "";
+    idclienteInput.value = 0;
+
+    if (q.length < 2) return;
+
+    const res = await fetch(`/buscar_clientes?q=${q}`);
+    const clientes = await res.json();
+
+    clientes.forEach(c => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "list-group-item list-group-item-action";
+        item.textContent = `${c.apenomb} – DNI ${c.dni}`;
+
+        item.onclick = () => {
+            clienteInput.value = `${c.apenomb} – DNI ${c.dni}`;
+            idclienteInput.value = c.idclientes;
+            listaClientes.innerHTML = "";
+        };
+
+        listaClientes.appendChild(item);
+    });
+});
