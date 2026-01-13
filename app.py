@@ -3,6 +3,10 @@ import uuid
 from db import getConnection
 from datetime import datetime
 import pymysql
+import qrcode
+import base64
+from io import BytesIO
+
 
 
 
@@ -420,12 +424,14 @@ def registrar_venta():
     cursor = conexion.cursor()
 
     try:
+        qr_token = uuid.uuid4().hex
+
         # ---------------- INSERT VENTA ----------------
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
-             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,NOW(),'OK','',0)
+             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados,qr_token)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,NOW(),'OK','',0,%s)
         """, (
             idjornada,
             idusuario,
@@ -433,7 +439,8 @@ def registrar_venta():
             idcliente if idcliente != "0" else None,
             idmodopago,
             total,
-            0
+            0,
+            qr_token
         ))
 
         idventa = cursor.lastrowid
@@ -1243,6 +1250,9 @@ def delete_Modopago(id):
 @app.route("/ticket/<int:idventa>")
 def ticket(idventa):
 
+    # ======================
+    # CONEXIÓN
+    # ======================
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
@@ -1251,12 +1261,12 @@ def ticket(idventa):
     # ======================
     cursor.execute("""
         SELECT v.idventa,
-               v.fecha_hora as fecha,
+               v.fecha_hora AS fecha,
                v.total,
-               c.apenomb AS cliente,
+               IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
                j.nombre AS jornada
         FROM ventas v
-        JOIN clientes c ON c.idclientes = v.idclientes
+        LEFT JOIN clientes c ON c.idclientes = v.idclientes
         JOIN jornadas j ON j.idjornada = v.idjornada
         WHERE v.idventa = %s
     """, (idventa,))
@@ -1283,6 +1293,25 @@ def ticket(idventa):
 
     conexion.close()
 
+    # ======================
+    # GENERAR QR
+    # ======================
+    qr_texto = (
+        f"TICKETJETS\n"
+        f"Venta: {venta['idventa']}\n"
+        f"Total: ${venta['total']}\n"
+        f"Fecha: {venta['fecha'].strftime('%d/%m/%Y %H:%M')}"
+    )
+
+    qr = qrcode.make(qr_texto)
+
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    # ======================
+    # RENDER TEMPLATE
+    # ======================
     return render_template(
         "ticket.html",
         idventa=venta["idventa"],
@@ -1292,8 +1321,31 @@ def ticket(idventa):
         detalle=detalle,
         subtotal=venta["total"],
         total=venta["total"],
-        qr_base64=""  # lo agregamos después
+        qr_base64=qr_base64
     )
+
+
+@app.route("/ver_ticket/<token>")
+def ver_ticket(token):
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT v.idventa, v.fecha_hora, v.total, v.estado_ticket,
+               j.nombre AS jornada
+        FROM ventas v
+        JOIN jornadas j ON v.idjornada = j.idjornada
+        WHERE v.qr_token = %s
+    """, (token,))
+
+    venta = cursor.fetchone()
+    conexion.close()
+
+    if not venta:
+        return "TICKET NO VÁLIDO", 404
+
+    return render_template("validar_ticket.html", venta=venta)
+
 
 
 

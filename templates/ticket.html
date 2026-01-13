@@ -1,71 +1,71 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Ticket #{{ idventa }}</title>
+    <meta charset="UTF-8">
+    <title>Ticket #{{ idventa }}</title>
 
-<style>
-/* =========================
-   CONFIGURACIÓN IMPRESIÓN
-========================= */
-@media print {
+    <style>
+    /* =========================
+       CONFIGURACIÓN IMPRESIÓN
+    ========================= */
+    @media print {
+        body {
+            width: 76mm;
+            margin: 0;
+        }
+    }
+
+    /* =========================
+       ESTILOS GENERALES
+    ========================= */
     body {
         width: 76mm;
-        margin: 0;
+        margin: 0 auto;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.15;
+        color: #000;
     }
-}
 
-/* =========================
-   ESTILOS GENERALES
-========================= */
-body {
-    width: 76mm;
-    margin: 0 auto;
-    font-family: monospace;
-    font-size: 10px;
-    line-height: 1.15;
-    color: #000;
-}
+    /* =========================
+       UTILIDADES
+    ========================= */
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .bold { font-weight: bold; }
 
-/* =========================
-   UTILIDADES
-========================= */
-.center { text-align: center; }
-.right { text-align: right; }
-.bold { font-weight: bold; }
+    hr {
+        border: none;
+        border-top: 1px dashed #000;
+        margin: 4px 0;
+    }
 
-hr {
-    border: none;
-    border-top: 1px dashed #000;
-    margin: 4px 0;
-}
+    /* =========================
+       TABLA PRODUCTOS
+    ========================= */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-/* =========================
-   TABLA PRODUCTOS
-========================= */
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+    td {
+        padding: 1px 0;
+        vertical-align: top;
+    }
 
-td {
-    padding: 1px 0;
-    vertical-align: top;
-}
+    .total {
+        font-size: 11px;
+        font-weight: bold;
+    }
 
-.total {
-    font-size: 11px;
-    font-weight: bold;
-}
-
-/* =========================
-   QR
-========================= */
-.qr img {
-    width: 120px;
-    margin-top: 4px;
-}
-</style>
+    /* =========================
+       QR
+    ========================= */
+    .qr img {
+        width: 120px;
+        margin-top: 6px;
+    }
+    </style>
 </head>
 
 <body>
@@ -75,7 +75,7 @@ td {
    AUTO IMPRESIÓN Y CIERRE
 ========================= */
 window.onload = function () {
-    setTimeout(() => {
+    setTimeout(function () {
         window.print();
     }, 200);
 };
@@ -90,7 +90,7 @@ window.onafterprint = function () {
 ========================= -->
 <div class="center bold">TicketJets</div>
 <div class="center">DOCUMENTO NO VÁLIDO COMO FACTURA</div>
-<div class="center">XXXXXXXXXXXX</div>
+<div class="center">CUIT: XX-XXXXXXXX-X</div>
 
 <hr>
 
@@ -142,7 +142,7 @@ window.onafterprint = function () {
 ========================= -->
 {% if qr_base64 %}
 <div class="center qr">
-    <img src="data:image/png;base64,{{ qr_base64 }}">
+    <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Ticket">
 </div>
 {% endif %}
 
@@ -152,6 +152,7 @@ window.onafterprint = function () {
      PIE
 ========================= -->
 <div class="center">Gracias por su compra</div>
+<div class="center">Conserve este ticket</div>
 
 </body>
 </html>
