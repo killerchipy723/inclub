@@ -60,11 +60,14 @@
                   </button>
 
                   {% if j.estado|lower == 'activo' %}
-                  <a href="/finalizar_jornada/{{ j.idjornada }}"
-                     class="btn btn-danger"
-                     onclick="return confirm('¿Finalizar jornada?')">
-                    Finalizar
-                  </a>
+                  <form action="/finalizar_jornada/{{ j.idjornada }}" method="post" style="display:inline;">
+                      <button type="submit"
+                              class="btn btn-danger btn-sm "
+                              onclick="return confirm('¿Finalizar jornada?')">
+                          Finalizar
+                      </button>
+                  </form>
+
                   {% endif %}
 
                 </div>

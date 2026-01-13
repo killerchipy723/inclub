@@ -798,6 +798,25 @@ def jornadas_actualizar(idjornada):
 
     return redirect(url_for("jornadas_admin"))
 
+# =====================================================
+# finalizar jornada 
+# =====================================================
+@app.route("/finalizar_jornada/<int:idjornada>", methods=["POST"])
+def jornadas_update(idjornada):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+   
+    query = "UPDATE jornadas SET estado = 'Finalizado' WHERE idjornada = %s"
+    conexion = getConnection()
+    cursor = conexion.cursor()
+
+    cursor.execute(query, (idjornada))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for("jornadas_admin"))
 
 # =====================================================
 # LISTADO / ADMINISTRACIÓN DE JORNADAS
