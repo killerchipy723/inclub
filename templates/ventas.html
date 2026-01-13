@@ -23,7 +23,6 @@
                data-precio="{{ p.importe }}">
 
             <div class="card-body p-1 d-flex flex-column justify-content-between">
-              <!-- NOMBRE DEL PRODUCTO CON FUENTE MÁS PEQUEÑA -->
               <div class="nombre-producto fw-semibold text-truncate" style="font-size:0.6rem;">
                 {{ p.nombre }}
               </div>
@@ -32,7 +31,7 @@
                 $ {{ p.importe }}
               </div>
 
-              <button class="btn btn-success btn-sm agregar mt-1">
+              <button class="btn btn-success btn-sm agregar mt-1" type="button">
                 +
               </button>
             </div>
@@ -46,60 +45,70 @@
     <!-- ================= CARRITO ================= -->
     <aside class="carrito-pos bg-dark text-white p-2 rounded" style="width: 420px;">
 
-      <!-- DATOS VENTA -->
-      <div class="datos-venta mb-2">
-        <div class="cliente-autocomplete position-relative">
-            <input type="text"
-                  id="clienteInput"
-                  class="form-control form-control-sm"
-                  placeholder="Buscar cliente por nombre o DNI"
-                  autocomplete="off">
+      <!-- 🔴 FORMULARIO DE VENTA (CLAVE) -->
+      <form id="formVenta">
 
-            <input type="hidden" id="idcliente" value="0">
-            <div id="listaClientes" class="list-group position-absolute w-100"></div>
+        <!-- DATOS VENTA -->
+        <div class="datos-venta mb-2">
+          <div class="cliente-autocomplete position-relative">
 
-            <button class="btn btn-outline-success btn-sm mt-1 w-100"
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalCliente">
-              ➕ Nuevo cliente
-            </button>
+              <input type="text"
+                     id="clienteInput"
+                     class="form-control form-control-sm"
+                     placeholder="Consumidor Final"
+                     autocomplete="off">
+
+              <input type="hidden" id="idcliente" name="cliente" value="1" required>
+
+              <div id="listaClientes" class="list-group position-absolute w-100"></div>
+
+              <button class="btn btn-outline-success btn-sm mt-1 w-100"
+                      type="button"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalCliente">
+                ➕ Nuevo cliente
+              </button>
+          </div>
+
+          <select id="modopago" name="modopago" class="form-select form-select-sm mt-2">
+            {% for m in modopago %}
+            <option value="{{ m.idmodopago }}">{{ m.modo }}</option>
+            {% endfor %}
+          </select>
         </div>
 
-        <select id="modopago" class="form-select form-select-sm mt-2">
-          {% for m in modopago %}
-          <option value="{{ m.idmodopago }}">{{ m.modo }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <!-- TABLA CARRITO -->
-      <div class="tabla-carrito">
-        <table class="table table-dark table-sm mb-0 align-middle" id="carritoTable">
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th class="text-center" style="width:60px;">Cant</th>
-              <th class="text-end" style="width:80px;">Precio</th>
-              <th class="text-end" style="width:90px;">Subt.</th>
-              <th style="width:30px;"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- JS inserta filas acá -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- TOTAL -->
-      <div class="footer-carrito mt-2 border-top pt-2">
-        <div class="total fs-5 fw-bold text-end mb-2">
-          TOTAL $ <span id="total">0</span>
+        <!-- TABLA CARRITO -->
+        <div class="tabla-carrito">
+          <table class="table table-dark table-sm mb-0 align-middle" id="carritoTable">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-center" style="width:60px;">Cant</th>
+                <th class="text-end" style="width:80px;">Precio</th>
+                <th class="text-end" style="width:90px;">Subt.</th>
+                <th style="width:30px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- JS inserta filas acá -->
+            </tbody>
+          </table>
         </div>
-        <button id="procesarVenta" class="btn btn-success btn-lg w-100">
-          COBRAR
-        </button>
-      </div>
 
+        <!-- TOTAL -->
+        <div class="footer-carrito mt-2 border-top pt-2">
+          <div class="total fs-5 fw-bold text-end mb-2">
+            TOTAL $ <span id="total">0</span>
+          </div>
+
+          <button id="procesarVenta"
+                  type="button"
+                  class="btn btn-success btn-lg w-100">
+            COBRAR
+          </button>
+        </div>
+
+      </form>
     </aside>
   </div>
 </div>

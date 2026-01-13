@@ -6,6 +6,7 @@ import pymysql
 
 
 
+
 app = Flask(__name__)
 app.secret_key = "inclub_secreto_2026"
 
@@ -323,14 +324,17 @@ def ventas_home():
 
     session["idjornada"] = jornada["idjornada"]
     idjornada = jornada["idjornada"]
+    idpunto = session.get("idpunto")
+
 
     # -------------------- RECAUDACIÓN TOTAL --------------------
     cursor.execute("""
-        SELECT IFNULL(SUM(total), 0) AS recaudacion
-        FROM ventas
-        WHERE idjornada = %s
-        AND estado = 'OK'
-    """, (idjornada,))
+    SELECT IFNULL(SUM(total), 0) AS recaudacion
+    FROM ventas
+    WHERE idjornada = %s
+      AND idpunto = %s
+      AND estado = 'OK'
+""", (idjornada, idpunto))
     recaudacion = cursor.fetchone()["recaudacion"]
 
     # -------------------- CLIENTES --------------------
@@ -474,12 +478,21 @@ def registrar_venta():
     except Exception as e:
         conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return redirect(url_for("ventas_home", message="Error al registrar la venta"))
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
     finally:
         conexion.close()
 
-    return redirect(url_for("ventas_home", message="Venta registrada correctamente"))
+    return jsonify({
+    "success": True,
+    "idventa": idventa
+})
+
+
+
 
 #finalizar jornada
 @app.route("/finalizar_jornada", methods=["POST"])
@@ -1224,6 +1237,62 @@ def delete_Modopago(id):
 
     return redirect(
         url_for("home_Modopago", message="Modo de Pago eliminado correctamente")
+    )
+#------------------------------ TIKET DE VENTA ----------------------------------
+#Ticket de venta 
+@app.route("/ticket/<int:idventa>")
+def ticket(idventa):
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # ======================
+    # DATOS DE LA VENTA
+    # ======================
+    cursor.execute("""
+        SELECT v.idventa,
+               v.fecha_hora as fecha,
+               v.total,
+               c.apenomb AS cliente,
+               j.nombre AS jornada
+        FROM ventas v
+        JOIN clientes c ON c.idclientes = v.idclientes
+        JOIN jornadas j ON j.idjornada = v.idjornada
+        WHERE v.idventa = %s
+    """, (idventa,))
+
+    venta = cursor.fetchone()
+
+    if not venta:
+        conexion.close()
+        return "Venta no encontrada", 404
+
+    # ======================
+    # DETALLE DE PRODUCTOS
+    # ======================
+    cursor.execute("""
+        SELECT p.nombre AS producto,
+               d.cantidad,
+               d.subtotal
+        FROM ventas_detalle d
+        JOIN productos p ON p.idproductos = d.idproductos
+        WHERE d.idventa = %s
+    """, (idventa,))
+
+    detalle = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "ticket.html",
+        idventa=venta["idventa"],
+        jornada=venta["jornada"],
+        fecha_hora=venta["fecha"].strftime("%d/%m/%Y %H:%M"),
+        cliente=venta["cliente"],
+        detalle=detalle,
+        subtotal=venta["total"],
+        total=venta["total"],
+        qr_base64=""  # lo agregamos después
     )
 
 
