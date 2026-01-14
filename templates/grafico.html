@@ -1,0 +1,131 @@
+{% include '/cabecera.html' %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gráficos de Ventas</title>
+
+    <!-- Bootstrap LOCAL -->
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+
+    <!-- Estilos propios -->
+    <link rel="stylesheet" href="/static/styles/cabecera.css">
+
+    <style>
+        body {
+            background-color: #0e0e0e;
+            color: #fff;
+        }
+
+        .card {
+            background-color: #1c1c1c;
+            border: none;
+        }
+
+        .card h5 {
+            font-size: 0.9rem;
+            color: #bbb;
+        }
+
+        .card h3 {
+            color: #fff;
+        }
+
+        .filtro-label {
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+
+        canvas {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container-fluid mt-4">
+
+    <!-- ===================== TITULO ===================== -->
+    <div class="mb-4">
+        <h3 class="fw-bold text-white">📊 Estadísticas de Ventas</h3>
+        <p class="text-secondary">Análisis por jornada y punto de venta</p>
+    </div>
+
+    <!-- ===================== FILTROS ===================== -->
+    <div class="card mb-4 p-3">
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+                <label class="filtro-label">Jornada</label>
+                <select id="filtroJornada" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    {% for j in jornadas %}
+                    <option value="{{ j.idjornada }}">{{ j.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="filtro-label">Punto de Venta</label>
+                <select id="filtroPunto" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for p in puntos %}
+                    <option value="{{ p.idpunto }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4 text-end">
+                <button id="btnFiltrar" class="btn btn-success btn-sm">
+                    🔍 Aplicar Filtros
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===================== TARJETAS RESUMEN ===================== -->
+    <div class="row mb-4">
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h5>Total Vendido</h5>
+                <h3 id="totalVendido">$ 0</h3>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h5>Ventas Totales</h5>
+                <h3 id="cantidadVentas">0</h3>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h5>Punto con más ventas</h5>
+                <h3 id="mejorPunto">-</h3>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================== GRAFICO ===================== -->
+    <div class="card p-4">
+        <h5 class="mb-3">Ventas por Punto de Venta</h5>
+        <canvas id="graficoVentas" height="120"></canvas>
+    </div>
+
+</div>
+
+<script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/chart.umd.js/chart.umd.js"></script>
+<script src="/static/js/graficos.js"></script>
+
+
+</body>
+</html>

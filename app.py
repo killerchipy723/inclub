@@ -196,6 +196,11 @@ def update_usuario(id):
     conexion.close()
 
     return redirect(url_for("home_userReg"))
+
+#--------------------------------------BOLETERIA---------------------------------
+@app.route("/boleteria")
+def boleteria_home():
+    return render_template("boleteria.html")
 #--------------------------------------Usuarios Puntos---------------------------
 
 # ==============================
@@ -1351,9 +1356,10 @@ def ver_ticket(token):
 
     cursor.execute("""
         SELECT v.idventa, v.fecha_hora, v.total, v.estado_ticket,
-               j.nombre AS jornada
+               j.nombre AS jornada,p.nombre as caja
         FROM ventas v
         JOIN jornadas j ON v.idjornada = j.idjornada
+        JOIN puntos_venta p ON v.idpunto = p.idpunto
         WHERE v.qr_token = %s
     """, (token,))
 
@@ -1364,6 +1370,247 @@ def ver_ticket(token):
         return "TICKET NO VÁLIDO", 404
 
     return render_template("validar_ticket.html", venta=venta)
+
+#-----------------------------REPORTES-----------------------------------
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # ======================
+    # KPI PRINCIPALES
+    # ======================
+    cursor.execute("SELECT COALESCE(SUM(total),0) AS total_ventas FROM ventas")
+    total_ventas = cursor.fetchone()["total_ventas"]
+
+    cursor.execute("SELECT COUNT(*) AS total_tickets FROM ventas")
+    total_tickets = cursor.fetchone()["total_tickets"]
+
+    cursor.execute("""
+        SELECT p.nombre, SUM(d.cantidad) AS total
+        FROM ventas_detalle d
+        JOIN productos p ON p.idproductos = d.idproductos
+        GROUP BY p.nombre
+        ORDER BY total DESC
+        LIMIT 1
+    """)
+    bebida_top = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT c.nombre, SUM(v.total) AS total
+        FROM ventas v
+        JOIN puntos_venta c ON c.idpunto = v.idpunto
+        GROUP BY c.nombre
+        ORDER BY total DESC
+        LIMIT 1
+    """)
+    caja_top = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT nombre 
+        FROM jornadas 
+        WHERE estado = 'Activa' 
+        ORDER BY idjornada DESC 
+        LIMIT 1
+    """)
+    jornada_activa = cursor.fetchone()
+
+    conexion.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        total_ventas=total_ventas,
+        total_tickets=total_tickets,
+        bebida_top=bebida_top,
+        caja_top=caja_top,
+        jornada_activa=jornada_activa
+    )
+
+#plantilla de reportes
+@app.route("/admin/reportes", methods=["GET", "POST"])
+def admin_reportes():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # ======================
+    # FILTROS
+    # ======================
+    idjornada = request.form.get("idjornada")
+    idcaja = request.form.get("idcaja")
+    idproducto = request.form.get("idproducto")
+    desde = request.form.get("desde")
+    hasta = request.form.get("hasta")
+
+    condiciones = []
+    valores = []
+
+    if idjornada:
+        condiciones.append("v.idjornada = %s")
+        valores.append(idjornada)
+
+    if idcaja:
+        condiciones.append("v.idcaja = %s")
+        valores.append(idcaja)
+
+    if idproducto:
+        condiciones.append("d.idproductos = %s")
+        valores.append(idproducto)
+
+    if desde and hasta:
+        condiciones.append("DATE(v.fecha_hora) BETWEEN %s AND %s")
+        valores.extend([desde, hasta])
+
+    where_sql = ""
+    if condiciones:
+        where_sql = "WHERE " + " AND ".join(condiciones)
+
+    # ======================
+    # REPORTE
+    # ======================
+    query = f"""
+        SELECT v.idventa,
+               v.fecha_hora,
+               j.nombre AS jornada,
+               c.nombre AS caja,
+               p.nombre AS producto,
+               d.cantidad,
+               d.subtotal
+        FROM ventas v
+        JOIN jornadas j ON j.idjornada = v.idjornada
+        JOIN puntos_venta c ON c.idpunto = v.idpunto
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        JOIN productos p ON p.idproductos = d.idproductos
+        {where_sql}
+        ORDER BY v.fecha_hora DESC
+    """
+
+    cursor.execute(query, valores)
+    ventas = cursor.fetchall()
+
+    # ======================
+    # COMBOS
+    # ======================
+    cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
+    jornadas = cursor.fetchall()
+
+    cursor.execute("SELECT idpunto, nombre FROM puntos_venta")
+    cajas = cursor.fetchall()
+
+    cursor.execute("SELECT idproductos, nombre FROM productos")
+    productos = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "admin_reportes.html",
+        ventas=ventas,
+        jornadas=jornadas,
+        cajas=cajas,
+        productos=productos
+    )
+
+
+#------------------------------- Grafico -------------------------------
+@app.route("/grafico", methods=["GET"])
+def grafico():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY nombre")
+    jornadas = cursor.fetchall()
+
+    cursor.execute("SELECT idpunto, nombre FROM puntos_venta ORDER BY nombre")
+    puntos = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "grafico.html",
+        usuario=session.get("nombre"),
+        rol=session.get("rol"),
+        jornadas=jornadas,
+        puntos=puntos
+    )
+#--------------------------- REPORTES POR CAJA---------------------------------
+@app.route("/reporte")
+def reporte_cajas():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    idjornada = request.args.get("idjornada")
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # =======================
+    # JORNADA
+    # =======================
+    jornada_nombre = "Todas"
+    if idjornada:
+        cursor.execute(
+            "SELECT nombre FROM jornadas WHERE idjornada = %s",
+            (idjornada,)
+        )
+        j = cursor.fetchone()
+        if j:
+            jornada_nombre = j["nombre"]
+
+    # =======================
+    # RECAUDACIÓN POR CAJA
+    # =======================
+    query = """
+        SELECT pv.nombre AS punto,
+               IFNULL(SUM(v.total), 0) AS total
+        FROM puntos_venta pv
+        LEFT JOIN ventas v
+            ON v.idpunto = pv.idpunto
+            AND v.estado = 'OK'
+    """
+
+    params = []
+    if idjornada:
+        query += " AND v.idjornada = %s"
+        params.append(idjornada)
+
+    query += """
+        GROUP BY pv.idpunto, pv.nombre
+        ORDER BY pv.nombre
+    """
+
+    cursor.execute(query, params)
+    cajas = cursor.fetchall()
+
+    total_general = sum(c["total"] for c in cajas)
+
+    conexion.close()
+
+    # 📅 FECHA Y HORA DEL REPORTE
+    fecha_reporte = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    return render_template(
+        "reportes_cajas.html",
+        cajas=cajas,
+        total_general=total_general,
+        jornada=jornada_nombre,
+        fecha_reporte=fecha_reporte
+    )
+
+
+
+
+
+
+
+
 
 
 

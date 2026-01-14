@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Administrativo</title>
+
+    <link rel="shortcut icon" href="/static/img/logoJetSmall.png">
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/styles/cabecera.css">
+
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
+        .card-kpi {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,.08);
+        }
+        .kpi-icon {
+            font-size: 2.5rem;
+            opacity: .8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid p-4">
+
+    <!-- TÍTULO -->
+    <div class="mb-4">
+        <h2 class="fw-bold text-white">📊 Dashboard Administrativo</h2>
+        <p class="fw-bold text-white">Resumen general del sistema</p>
+    </div>
+
+    <!-- KPI -->
+    <div class="row g-4">
+
+        <div class="col-md-3">
+            <div class="card card-kpi p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Total Vendido</h6>
+                        <h3 class="fw-bold">$ {{ total_ventas }}</h3>
+                    </div>
+                    <div class="text-success kpi-icon">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-kpi p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Tickets Emitidos</h6>
+                        <h3 class="fw-bold">{{ total_tickets }}</h3>
+                    </div>
+                    <div class="text-primary kpi-icon">
+                        <i class="bi bi-ticket-perforated"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-kpi p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Bebida Más Vendida</h6>
+                        <h5 class="fw-bold">
+                            {{ bebida_top.nombre if bebida_top else "—" }}
+                        </h5>
+                    </div>
+                    <div class="text-warning kpi-icon">
+                        <i class="bi bi-cup-straw"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-kpi p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Caja con Más Ventas</h6>
+                        <h5 class="fw-bold">
+                            {{ caja_top.nombre if caja_top else "—" }}
+                        </h5>
+                    </div>
+                    <div class="text-danger kpi-icon">
+                        <i class="bi bi-shop"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JORNADA -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card card-kpi p-4">
+                <h5 class="fw-bold mb-2">📅 Jornada Activa</h5>
+                <p class="fs-5">
+                    {{ jornada_activa.nombre if jornada_activa else "No hay jornada activa" }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTONES -->
+    <div class="row mt-4">
+        <div class="col-md-12 d-flex gap-2">
+            <a href="/admin/reportes" class="btn btn-dark">
+                <i class="bi bi-bar-chart"></i> Ver Reportes
+            </a>
+            <a href="/admin/exportar" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+            </a>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

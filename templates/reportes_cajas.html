@@ -1,0 +1,111 @@
+{% include '/cabecera.html' %}
+
+<style>
+@media print {
+    .btn-print {
+        display: none;
+    }
+    body {
+        margin: 0;
+    }
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #fff;
+    color: #000;
+}
+
+.header {
+    border-bottom: 2px solid #000;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+.logo {
+    height: 60px;
+}
+
+.titulo {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.subtitulo {
+    font-size: 14px;
+    color: #555;
+}
+
+.table th {
+    background-color: #f0f0f0;
+}
+
+.total-general {
+    font-size: 18px;
+    font-weight: bold;
+    text-align: right;
+    margin-top: 20px;
+}
+
+.btn-print {
+    margin-bottom: 20px;
+}
+</style>
+
+<body>
+
+<div class="container mt-4">
+
+    <!-- ================= CABECERA ================= -->
+    <div class="row header align-items-center">
+        <div class="col-3">
+            <img src="/static/img/logoJetSmall.png" class="logo" alt="TicketJets">
+        </div>
+
+        <div class="col-6 text-center">
+            <div class="titulo">TicketJets</div>
+            <div class="subtitulo">Reporte de Recaudación por Caja</div>
+        </div>
+
+        <div class="col-3 text-end">
+            <div><strong>Jornada:</strong> {{ jornada }}</div>
+            <div><strong>Emisión:</strong> {{ fecha_hora }}</div>
+        </div>
+    </div>
+
+    <!-- ================= BOTON PDF ================= -->
+    <div class="text-end btn-print">
+        <button class="btn btn-danger btn-sm" onclick="window.print()">
+            📄 Exportar a PDF
+        </button>
+    </div>
+
+    <!-- ================= TABLA ================= -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Caja / Punto de Venta</th>
+                <th class="text-end">Total Recaudado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in cajas %}
+            <tr>
+                <td>{{ c.punto }}</td>
+                <td class="text-end">$ {{ "%.2f"|format(c.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ================= TOTAL GENERAL ================= -->
+    <div class="total-general">
+        TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}
+    </div>
+
+</div>
+
+</body>
+</html>
+
+{% include '/pie.html' %}

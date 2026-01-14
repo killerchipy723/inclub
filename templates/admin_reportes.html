@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reportes</title>
+
+    <link rel="shortcut icon" href="/static/img/logoJetSmall.png">
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/styles/cabecera.css">
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,.08);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid p-4">
+
+    <!-- TÍTULO -->
+    <div class="mb-4">
+        <h3 class="fw-bold text-white">📄 Reportes de Ventas</h3>
+        <p class="fw-bold text-white">Filtrado avanzado de información</p>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card p-4 mb-4">
+        <form method="POST" class="row g-3">
+
+            <div class="col-md-2">
+                <label class="form-label">Jornada</label>
+                <select name="idjornada" class="form-select">
+                    <option value="">Todas</option>
+                    {% for j in jornadas %}
+                    <option value="{{ j.idjornada }}">{{ j.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Caja</label>
+                <select name="idcaja" class="form-select">
+                    <option value="">Todas</option>
+                    {% for c in cajas %}
+                    <option value="{{ c.idcaja }}">{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Producto</label>
+                <select name="idproducto" class="form-select">
+                    <option value="">Todos</option>
+                    {% for p in productos %}
+                    <option value="{{ p.idproductos }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Desde</label>
+                <input type="date" name="desde" class="form-control">
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Hasta</label>
+                <input type="date" name="hasta" class="form-control">
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-dark w-100">
+                    <i class="bi bi-funnel"></i> Filtrar
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card p-4">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Jornada</th>
+                    <th>Caja</th>
+                    <th>Producto</th>
+                    <th>Cant.</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in ventas %}
+                <tr>
+                    <td>{{ v.fecha_hora.strftime("%d/%m/%Y %H:%M") }}</td>
+                    <td>{{ v.jornada }}</td>
+                    <td>{{ v.caja }}</td>
+                    <td>{{ v.producto }}</td>
+                    <td>{{ v.cantidad }}</td>
+                    <td>$ {{ "%.2f"|format(v.subtotal) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+</body>
+</html>

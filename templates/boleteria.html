@@ -1,0 +1,96 @@
+{% include '/cabecera_boleteria.html' %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Boletería</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body {
+    background: #111;
+    color: #fff;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.btn-boleteria {
+    font-size: 18px;
+    padding: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+    <h3 class="mb-4">🎟️ Boletería</h3>
+
+    <div class="card bg-dark shadow p-4">
+
+        <form id="formBoleteria">
+
+            <!-- EVENTO -->
+            <div class="mb-3">
+                <label>Evento</label>
+                <select class="form-select" name="evento" required>
+                    {% for e in eventos %}
+                    <option value="{{ e.idevento }}">{{ e.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- CLIENTE -->
+            <div class="mb-3">
+                <label>Cliente</label>
+                <input type="hidden" name="cliente" id="idcliente">
+                <input type="text" id="clienteInput" class="form-control" placeholder="Buscar cliente...">
+                <div id="listaClientes" class="list-group"></div>
+            </div>
+
+            <!-- SECCIÓN -->
+            <div class="mb-3">
+                <label>Sección</label>
+                <select class="form-select" name="seccion" id="seccionSelect" required>
+                    {% for s in secciones %}
+                    <option value="{{ s.idseccion }}">{{ s.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- PRECIO -->
+            <div class="mb-3">
+                <label>Precio</label>
+                <input type="text" class="form-control" id="precio" readonly>
+            </div>
+
+            <button type="button" id="emitirTicket" class="btn btn-success w-100 btn-boleteria">
+                Emitir Ticket
+            </button>
+
+        </form>
+
+    </div>
+</div>
+
+<script src="/static/js/boleteria.js"></script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+{% include '/pie.html' %}

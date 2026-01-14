@@ -132,10 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
     iframe.src = `/ticket/${idventa}`;
     document.body.appendChild(iframe);
 
-    iframe.onload = () => {
-      iframe.contentWindow.print();
-      setTimeout(() => iframe.remove(), 1500);
-    };
+    
   }
 
   // ================= RESET TOTAL =================
