@@ -10,7 +10,7 @@
         <div class="row mb-3">
           <div class="col">
             <label>Nombre</label>
-            <input type="text" name="nombre" class="form-control" required>
+            <input type="text" name="nombre" class="form-control text-uppercase" required>
           </div>
 
           <div class="col">
@@ -24,6 +24,7 @@
               <option disabled selected value="">Seleccione rol</option>
               <option value="Vendedor">Vendedor</option>
               <option value="Administrador">Administrador</option>
+              <option value="Boleteria">Boleteria</option>
               <option value="Otro">Otro/a</option>
             </select>
           </div>
@@ -107,7 +108,7 @@
 
         <div class="modal-body">
           <label>Usuario</label>
-          <input type="text" name="nombre" class="form-control mb-2" value="{{ alu.nombre }}" required>
+          <input type="text" name="nombre" class="form-control mb-2 text-uppercase" value="{{ alu.nombre }}" required>
 
           <label>Contraseña</label>
           <input type="password" name="clave" class="form-control mb-2" value="{{ alu.clave }}" required>
@@ -116,6 +117,7 @@
           <select name="rol" class="form-control mb-2" required>
             <option value="Vendedor" {% if alu.rol=='Vendedor' %}selected{% endif %}>Vendedor</option>
             <option value="Administrador" {% if alu.rol=='Administrador' %}selected{% endif %}>Administrador</option>
+             <option value="Boleteria" {% if alu.rol=='Boleteria' %}selected{% endif %}>Boleteria</option>
             <option value="Otro" {% if alu.rol=='Otro' %}selected{% endif %}>Otro</option>
           </select>
 

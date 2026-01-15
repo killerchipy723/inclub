@@ -20,6 +20,10 @@ def home():
     return render_template("login.html")
 
 
+from flask import render_template, request, redirect, url_for, session
+import pymysql
+from functools import wraps
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
@@ -53,7 +57,7 @@ def login():
         session["id"] = user["idusuarios"]
         session["nombre"] = user["nombre"]
         session["rol"] = user["rol"]
-        session["equipo"] = equipo  # IP actual
+        session["equipo"] = equipo
         conexion.close()
         return redirect(url_for("admin"))
 
@@ -93,9 +97,20 @@ def login():
     session["rol"] = user["rol"]
     session["idpunto"] = punto["idpunto"]
     session["punto"] = punto["nombre"]
+    session["equipo"] = equipo
 
     conexion.close()
-    return redirect(url_for("ventas_home"))
+
+    # 5️⃣ REDIRECCIÓN SEGÚN ROL
+    if user["rol"] == "Vendedor":
+        return redirect(url_for("ventas_home"))
+
+    if user["rol"] == "Boleteria":
+        return redirect(url_for("boleteria_home"))
+
+    # Seguridad extra
+    return redirect(url_for("login"))
+
 
 
 
@@ -144,7 +159,7 @@ def reg_usuario():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    nombre = request.form["nombre"]
+    nombre = request.form["nombre"].upper()
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
@@ -180,7 +195,7 @@ def update_usuario(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    nombre = request.form["nombre"]
+    nombre = request.form["nombre"].upper
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
