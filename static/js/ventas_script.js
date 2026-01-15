@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tbody.innerHTML += `
         <tr>
           <td>${item.nombre}</td>
+
           <td>
             <input type="number"
                    class="form-control form-control-sm cantidad"
@@ -31,16 +32,23 @@ document.addEventListener("DOMContentLoaded", () => {
                    value="${item.cantidad}"
                    min="1">
           </td>
+
           <td class="text-end">$ ${formatoMoneda(item.precio)}</td>
+
           <td class="text-end">$ ${formatoMoneda(subtotal)}</td>
-          <td>
+
+          <td class="text-center">
             <input type="checkbox"
-                   class="cortesia"
+                   class="form-check-input cortesia"
                    data-index="${index}"
                    ${item.cortesia ? "checked" : ""}>
           </td>
+
           <td>
-            <button class="btn btn-danger btn-sm eliminar" data-index="${index}">X</button>
+            <button class="btn btn-danger btn-sm eliminar"
+                    data-index="${index}">
+              ✕
+            </button>
           </td>
         </tr>
       `;
@@ -53,15 +61,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".agregar").forEach(btn => {
     btn.addEventListener("click", e => {
       const card = e.target.closest(".producto-card");
+
       const id = card.dataset.id;
       const nombre = card.dataset.nombre;
       const precio = parseFloat(card.dataset.precio);
 
       const existente = carrito.find(p => p.id == id);
+
       if (existente) {
         existente.cantidad++;
       } else {
-        carrito.push({ id, nombre, precio, cantidad: 1, cortesia: false });
+        carrito.push({
+          id: id,
+          nombre: nombre,
+          precio: precio,
+          cantidad: 1,
+          cortesia: false
+        });
       }
 
       actualizarCarrito();
@@ -71,12 +87,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // ================= CAMBIOS EN CARRITO =================
   document.querySelector("#carritoTable").addEventListener("input", e => {
     const index = e.target.dataset.index;
+
     if (e.target.classList.contains("cantidad")) {
-      carrito[index].cantidad = parseInt(e.target.value);
+      carrito[index].cantidad = parseInt(e.target.value) || 1;
     }
+
     if (e.target.classList.contains("cortesia")) {
       carrito[index].cortesia = e.target.checked;
     }
+
     actualizarCarrito();
   });
 
@@ -106,7 +125,9 @@ document.addEventListener("DOMContentLoaded", () => {
       formData.append("productos[]", p.id);
       formData.append("cantidades[]", p.cantidad);
       formData.append("precios[]", p.precio);
-      formData.append("cortesias[]", p.cortesia);
+
+      // 🔹 IMPORTANTE: enviar cortesía como 1 / 0
+      formData.append("cortesias[]", p.cortesia ? "1" : "0");
     });
 
     const res = await fetch("/registrar_venta", {
@@ -123,6 +144,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     imprimirTicket(data.idventa);
     resetearVenta();
+    actualizarRecaudacionCaja()
+
   });
 
   // ================= IMPRIMIR =================
@@ -131,11 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
     iframe.style.display = "none";
     iframe.src = `/ticket/${idventa}`;
     document.body.appendChild(iframe);
-
-    
   }
 
-  // ================= RESET TOTAL =================
+  // ================= RESET VENTA =================
   function resetearVenta() {
     carrito = [];
     actualizarCarrito();
@@ -176,3 +197,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 });
+
+// Actualiza recaudacion por punto de ventas
+async function actualizarRecaudacionCaja() {
+  const res = await fetch("/recaudacion_actual");
+  const data = await res.json();
+
+  const total = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(data.total);
+
+  const div = document.getElementById("recaudacionCaja");
+  if (div) {
+    div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
+  }
+}

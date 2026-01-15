@@ -399,26 +399,21 @@ def ventas_home():
 
 
 
-
+#---------------------REGISTRAR VENTA-----------------
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    # ---------------- DATOS GENERALES ----------------
     idusuario = session["id"]
     idpunto = session["idpunto"]
     idjornada = session["idjornada"]
-
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
+
     total_str = request.form.get("total", "0")
-
-# Quita separador de miles y cambia coma por punto
     total_str = total_str.replace(".", "").replace(",", ".")
-
     total = float(total_str)
-
 
     productos = request.form.getlist("productos[]")
     cantidades = request.form.getlist("cantidades[]")
@@ -431,12 +426,11 @@ def registrar_venta():
     try:
         qr_token = uuid.uuid4().hex
 
-        # ---------------- INSERT VENTA ----------------
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
-             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados,qr_token)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,NOW(),'OK','',0,%s)
+             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados, qr_token)
+            VALUES (%s,%s,%s,%s,%s,%s,0,NOW(),'OK','',0,%s)
         """, (
             idjornada,
             idusuario,
@@ -444,20 +438,21 @@ def registrar_venta():
             idcliente if idcliente != "0" else None,
             idmodopago,
             total,
-            0,
             qr_token
         ))
 
         idventa = cursor.lastrowid
-
-        # ---------------- DETALLE DE VENTA ----------------
         total_puntos = 0
 
         for i in range(len(productos)):
             idproducto = productos[i]
             cantidad = int(cantidades[i])
             precio = float(precios[i])
-            es_cortesia = cortesias[i] == "true"
+
+            # 🔹 Seguridad
+            es_cortesia = False
+            if i < len(cortesias):
+                es_cortesia = cortesias[i] == "1"
 
             subtotal = 0 if es_cortesia else cantidad * precio
 
@@ -474,11 +469,9 @@ def registrar_venta():
                 es_cortesia
             ))
 
-            # -------- PUNTOS (ejemplo: 1 punto cada $100) --------
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
-        # ---------------- ACTUALIZAR PUNTOS ----------------
         cursor.execute("""
             UPDATE ventas
             SET puntos_ganados = %s
@@ -490,18 +483,39 @@ def registrar_venta():
     except Exception as e:
         conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
     finally:
         conexion.close()
 
-    return jsonify({
-    "success": True,
-    "idventa": idventa
-})
+    return jsonify({"success": True, "idventa": idventa})
+
+#Ruta para actualizar la recaudacion por caja 
+@app.route("/recaudacion_actual")
+def recaudacion_actual():
+
+    if "idpunto" not in session or "idjornada" not in session:
+        return jsonify({"total": 0})
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(d.subtotal),0) AS total
+        FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        WHERE v.idpunto = %s
+          AND v.idjornada = %s
+    """, (
+        session["idpunto"],
+        session["idjornada"]
+    ))
+
+    total = cursor.fetchone()["total"]
+    conexion.close()
+
+    return jsonify({"total": float(total)})
+
 
 
 

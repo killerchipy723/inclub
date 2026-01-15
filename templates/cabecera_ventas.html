@@ -34,7 +34,7 @@
         <div class="fw-bold text-warning">
             🟢 Jornada activa: {{ jornada.nombre }}
         </div>
-        <div class="fw-bold text-success">
+        <div class="fw-bold text-success" id="recaudacionCaja">
             💰 Recaudación Parcial: $ {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
         </div>
     </div>
