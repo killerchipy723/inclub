@@ -1,81 +1,119 @@
-{% include '/cabecera.html' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Recaudación | TicketJets</title>
+
+<link rel="stylesheet" href="/static/css/bootstrap.min.css">
 
 <style>
 @media print {
     .btn-print {
         display: none;
     }
-    body {
-        margin: 0;
-    }
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background-color: #fff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #ffffff;
     color: #000;
+    font-size: 14px;
 }
 
+.container {
+    max-width: 900px;
+}
+
+/* ================= CABECERA ================= */
 .header {
-    border-bottom: 2px solid #000;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
+    border-bottom: 3px solid #000;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
 }
 
 .logo {
-    height: 60px;
+    height: 70px;
 }
 
 .titulo {
-    font-size: 22px;
-    font-weight: bold;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
 }
 
 .subtitulo {
     font-size: 14px;
     color: #555;
+    margin-top: 4px;
+}
+
+.info-box {
+    font-size: 13px;
+    text-align: right;
+}
+
+/* ================= TABLA ================= */
+.table {
+    margin-top: 10px;
 }
 
 .table th {
-    background-color: #f0f0f0;
+    background-color: #f3f3f3;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    text-align: center;
 }
 
+.table td {
+    padding: 10px;
+}
+
+.table td.text-end {
+    font-weight: 500;
+}
+
+/* ================= TOTAL ================= */
 .total-general {
-    font-size: 18px;
-    font-weight: bold;
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 2px solid #000;
+    font-size: 20px;
+    font-weight: 700;
     text-align: right;
-    margin-top: 20px;
 }
 
+/* ================= BOTON ================= */
 .btn-print {
-    margin-bottom: 20px;
+    margin: 20px 0;
 }
 </style>
+</head>
 
 <body>
 
 <div class="container mt-4">
 
     <!-- ================= CABECERA ================= -->
-    <div class="row header align-items-center">
+    <div class="row align-items-center header">
         <div class="col-3">
             <img src="/static/img/logoJetSmall.png" class="logo" alt="TicketJets">
         </div>
 
         <div class="col-6 text-center">
-            <div class="titulo">TicketJets</div>
-            <div class="subtitulo">Reporte de Recaudación por Caja</div>
+            <div class="titulo">TICKETJETS</div>
+            <div class="subtitulo">Reporte de Recaudación por Punto de Venta</div>
         </div>
 
-        <div class="col-3 text-end">
+        <div class="col-3 info-box">
             <div><strong>Jornada:</strong> {{ jornada }}</div>
-            <div><strong>Emisión:</strong> {{ fecha_hora }}</div>
+            <div><strong>Emitido:</strong> {{ fecha_hora }}</div>
         </div>
     </div>
 
     <!-- ================= BOTON PDF ================= -->
     <div class="text-end btn-print">
-        <button class="btn btn-danger btn-sm" onclick="window.print()">
+        <button class="btn btn-outline-dark btn-sm" onclick="window.print()">
             📄 Exportar a PDF
         </button>
     </div>
@@ -84,15 +122,20 @@ body {
     <table class="table table-bordered">
         <thead>
             <tr>
-                <th>Caja / Punto de Venta</th>
-                <th class="text-end">Total Recaudado</th>
+                <th style="width: 65%">Punto de Venta / Caja</th>
+                <th style="width: 35%" class="text-end">Total Recaudado</th>
             </tr>
         </thead>
         <tbody>
             {% for c in cajas %}
             <tr>
                 <td>{{ c.punto }}</td>
-                <td class="text-end">$ {{ "%.2f"|format(c.total) }}</td>
+                <td class="text-end">
+                    $ {{ "{:,.2f}".format(c.total)
+                         .replace(",", "X")
+                         .replace(".", ",")
+                         .replace("X", ".") }}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -100,12 +143,14 @@ body {
 
     <!-- ================= TOTAL GENERAL ================= -->
     <div class="total-general">
-        TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}
+        TOTAL GENERAL RECAUDADO:
+        $ {{ "{:,.2f}".format(total_general)
+             .replace(",", "X")
+             .replace(".", ",")
+             .replace("X", ".") }}
     </div>
 
 </div>
 
 </body>
 </html>
-
-{% include '/pie.html' %}

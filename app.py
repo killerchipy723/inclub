@@ -1543,66 +1543,42 @@ def grafico():
 #--------------------------- REPORTES POR CAJA---------------------------------
 @app.route("/reporte")
 def reporte_cajas():
-    if "id" not in session:
-        return redirect(url_for("home"))
-
-    idjornada = request.args.get("idjornada")
 
     conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    cursor = conexion.cursor()
 
-    # =======================
-    # JORNADA
-    # =======================
-    jornada_nombre = "Todas"
-    if idjornada:
-        cursor.execute(
-            "SELECT nombre FROM jornadas WHERE idjornada = %s",
-            (idjornada,)
-        )
-        j = cursor.fetchone()
-        if j:
-            jornada_nombre = j["nombre"]
+    # 🔹 Nombre de la jornada (ajustá el WHERE si hace falta)
+    cursor.execute("""
+        SELECT nombre
+        FROM jornadas
+        WHERE estado = 'Finalizado'
+        ORDER BY idjornada DESC
+        LIMIT 1
+    """)
+    jornada = cursor.fetchone()
 
-    # =======================
-    # RECAUDACIÓN POR CAJA
-    # =======================
-    query = """
-        SELECT pv.nombre AS punto,
-               IFNULL(SUM(v.total), 0) AS total
-        FROM puntos_venta pv
-        LEFT JOIN ventas v
-            ON v.idpunto = pv.idpunto
-            AND v.estado = 'OK'
-    """
-
-    params = []
-    if idjornada:
-        query += " AND v.idjornada = %s"
-        params.append(idjornada)
-
-    query += """
-        GROUP BY pv.idpunto, pv.nombre
-        ORDER BY pv.nombre
-    """
-
-    cursor.execute(query, params)
+    # 🔹 Recaudación por punto de venta
+    cursor.execute("""
+        SELECT p.nombre AS punto, SUM(v.total) AS total
+        FROM ventas v
+        JOIN puntos_venta p ON p.idpunto = v.idpunto
+        GROUP BY p.nombre
+    """)
     cajas = cursor.fetchall()
 
-    total_general = sum(c["total"] for c in cajas)
+    # 🔹 Total general
+    total_general = sum(c["total"] for c in cajas if c["total"])
 
     conexion.close()
 
-    # 📅 FECHA Y HORA DEL REPORTE
-    fecha_reporte = datetime.now().strftime("%d/%m/%Y %H:%M")
-
     return render_template(
         "reportes_cajas.html",
+        jornada=jornada["nombre"] if jornada else "Sin jornada",
+        fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M"),
         cajas=cajas,
-        total_general=total_general,
-        jornada=jornada_nombre,
-        fecha_reporte=fecha_reporte
+        total_general=total_general
     )
+
 
 
 
