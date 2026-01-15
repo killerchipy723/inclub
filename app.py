@@ -1381,42 +1381,106 @@ def admin_dashboard():
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
     # ======================
-    # KPI PRINCIPALES
+    # JORNADA ACTIVA
     # ======================
-    cursor.execute("SELECT COALESCE(SUM(total),0) AS total_ventas FROM ventas")
-    total_ventas = cursor.fetchone()["total_ventas"]
-
-    cursor.execute("SELECT COUNT(*) AS total_tickets FROM ventas")
-    total_tickets = cursor.fetchone()["total_tickets"]
-
     cursor.execute("""
-        SELECT p.nombre, SUM(d.cantidad) AS total
-        FROM ventas_detalle d
-        JOIN productos p ON p.idproductos = d.idproductos
-        GROUP BY p.nombre
-        ORDER BY total DESC
-        LIMIT 1
-    """)
-    bebida_top = cursor.fetchone()
-
-    cursor.execute("""
-        SELECT c.nombre, SUM(v.total) AS total
-        FROM ventas v
-        JOIN puntos_venta c ON c.idpunto = v.idpunto
-        GROUP BY c.nombre
-        ORDER BY total DESC
-        LIMIT 1
-    """)
-    caja_top = cursor.fetchone()
-
-    cursor.execute("""
-        SELECT nombre 
-        FROM jornadas 
-        WHERE estado = 'Activa' 
-        ORDER BY idjornada DESC 
+        SELECT idjornada, nombre
+        FROM jornadas
+        WHERE estado = 'Activo'
+        ORDER BY idjornada DESC
         LIMIT 1
     """)
     jornada_activa = cursor.fetchone()
+
+    id_jornada = jornada_activa["idjornada"] if jornada_activa else None
+
+    # ======================
+    # TOTAL VENDIDO
+    # ======================
+    if id_jornada:
+        cursor.execute("""
+            SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
+            FROM ventas v
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            WHERE v.idjornada = %s
+        """, (id_jornada,))
+    else:
+        cursor.execute("""
+            SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
+            FROM ventas_detalle d
+        """)
+
+    total_ventas = cursor.fetchone()["total_ventas"]
+
+    # ======================
+    # TOTAL DE TICKETS
+    # ======================
+    if id_jornada:
+        cursor.execute("""
+            SELECT COUNT(*) AS total_tickets
+            FROM ventas
+            WHERE idjornada = %s
+        """, (id_jornada,))
+    else:
+        cursor.execute("""
+            SELECT COUNT(*) AS total_tickets
+            FROM ventas
+        """)
+
+    total_tickets = cursor.fetchone()["total_tickets"]
+
+    # ======================
+    # BEBIDA MÁS VENDIDA
+    # ======================
+    if id_jornada:
+        cursor.execute("""
+            SELECT p.nombre, SUM(d.cantidad) AS total
+            FROM ventas_detalle d
+            JOIN productos p ON p.idproductos = d.idproductos
+            JOIN ventas v ON v.idventa = d.idventa
+            WHERE v.idjornada = %s
+            GROUP BY p.nombre
+            ORDER BY total DESC
+            LIMIT 1
+        """, (id_jornada,))
+    else:
+        cursor.execute("""
+            SELECT p.nombre, SUM(d.cantidad) AS total
+            FROM ventas_detalle d
+            JOIN productos p ON p.idproductos = d.idproductos
+            GROUP BY p.nombre
+            ORDER BY total DESC
+            LIMIT 1
+        """)
+
+    bebida_top = cursor.fetchone()
+
+    # ======================
+    # CAJA CON MÁS VENTAS
+    # ======================
+    if id_jornada:
+        cursor.execute("""
+            SELECT c.nombre, SUM(d.subtotal) AS total
+            FROM ventas v
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            JOIN puntos_venta c ON c.idpunto = v.idpunto
+            WHERE v.idjornada = %s
+            GROUP BY c.nombre
+            ORDER BY total DESC
+            LIMIT 1
+        """, (id_jornada,))
+    else:
+        cursor.execute("""
+            SELECT c.nombre, SUM(d.subtotal) AS total
+            FROM ventas v
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            JOIN puntos_venta c ON c.idpunto = v.idpunto
+            GROUP BY c.nombre
+            ORDER BY total DESC
+            LIMIT 1
+        """)
+
+    caja_top = cursor.fetchone()
 
     conexion.close()
 
@@ -1429,7 +1493,8 @@ def admin_dashboard():
         jornada_activa=jornada_activa
     )
 
-from datetime import datetime
+
+
 
 @app.route("/admin/reportes", methods=["GET", "POST"])
 def admin_reportes():
@@ -1545,6 +1610,8 @@ def grafico():
         puntos=puntos
     )
 #--------------------------- REPORTES POR CAJA---------------------------------
+
+
 @app.route("/reporte")
 def reporte_cajas():
 
@@ -1553,7 +1620,9 @@ def reporte_cajas():
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # 🔹 Si no selecciona jornada → tomar la última
+    # ======================
+    # JORNADA
+    # ======================
     if not idjornada:
         cursor.execute("""
             SELECT idjornada, nombre
@@ -1571,12 +1640,18 @@ def reporte_cajas():
         """, (idjornada,))
         jornada = cursor.fetchone()
 
-    # 🔹 Recaudación por punto de venta (FILTRADO POR JORNADA)
+    # ======================
+    # RECAUDACIÓN REAL
+    # ======================
     cursor.execute("""
-        SELECT p.nombre AS punto, IFNULL(SUM(v.total),0) AS total
+        SELECT 
+            p.nombre AS punto,
+            COALESCE(SUM(d.subtotal),0) AS total
         FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
         JOIN puntos_venta p ON p.idpunto = v.idpunto
         WHERE v.idjornada = %s
+        -- AND v.estado = 'OK'
         GROUP BY p.nombre
         ORDER BY p.nombre
     """, (idjornada,))
@@ -1584,8 +1659,11 @@ def reporte_cajas():
     cajas = cursor.fetchall()
     total_general = sum(c["total"] for c in cajas)
 
-    # 🔹 Para el selector
-    cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
+    cursor.execute("""
+        SELECT idjornada, nombre 
+        FROM jornadas 
+        ORDER BY idjornada DESC
+    """)
     jornadas = cursor.fetchall()
 
     conexion.close()
@@ -1599,6 +1677,8 @@ def reporte_cajas():
         cajas=cajas,
         total_general=total_general
     )
+
+
 
 
 
