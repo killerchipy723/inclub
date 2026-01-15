@@ -1,40 +1,111 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Reportes</title>
+<meta charset="UTF-8">
+<title>Reporte General de Ventas | TicketJets</title>
 
-    <link rel="shortcut icon" href="/static/img/logoJetSmall.png">
-    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/styles/cabecera.css">
-    <style>
-        body {
-            background-color: #f4f6f9;
-        }
-        .card {
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,.08);
-            border: none;
-        }
-    </style>
+<link rel="shortcut icon" href="/static/img/logoJetSmall.png">
+<link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+
+<style>
+@media print {
+    .no-print {
+        display: none;
+    }
+    body {
+        margin: 0;
+    }
+}
+
+body {
+    background-color: #ffffff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
+    color: #000;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* ================= CABECERA ================= */
+.header {
+    border-bottom: 3px solid #000;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+.logo {
+    height: 65px;
+}
+
+.titulo {
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.subtitulo {
+    font-size: 14px;
+    color: #555;
+}
+
+.info-box {
+    font-size: 13px;
+    text-align: right;
+}
+
+/* ================= TABLA ================= */
+.table th {
+    background-color: #f2f2f2;
+    font-size: 12px;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* ================= TOTAL ================= */
+.total-box {
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 3px solid #000;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: right;
+}
+</style>
 </head>
+
 <body>
 
-<div class="container-fluid p-4">
+<div class="container mt-4">
 
-    <!-- TÍTULO -->
-    <div class="mb-4">
-        <h3 class="fw-bold text-white">📄 Reportes de Ventas</h3>
-        <p class="fw-bold text-white">Filtrado avanzado de información</p>
+    <!-- ================= CABECERA ================= -->
+    <div class="row align-items-center header">
+        <div class="col-3">
+            <img src="/static/img/logoJetSmall.png" class="logo">
+        </div>
+
+        <div class="col-6 text-center">
+            <div class="titulo">TICKETJETS</div>
+            <div class="subtitulo">Reporte General Detallado de Ventas</div>
+        </div>
+
+        <div class="col-3 info-box">
+            <div><strong>Jornada:</strong> {{ jornada_nombre }}</div>
+            <div><strong>Emitido:</strong> {{ fecha_hora }}</div>
+        </div>
     </div>
 
-    <!-- FILTROS -->
-    <div class="card p-4 mb-4">
+    <!-- ================= FILTROS ================= -->
+    <div class="card p-3 mb-4 no-print">
         <form method="POST" class="row g-3">
 
             <div class="col-md-2">
                 <label class="form-label">Jornada</label>
-                <select name="idjornada" class="form-select">
+                <select name="idjornada" class="form-select form-select-sm">
                     <option value="">Todas</option>
                     {% for j in jornadas %}
                     <option value="{{ j.idjornada }}">{{ j.nombre }}</option>
@@ -44,17 +115,17 @@
 
             <div class="col-md-2">
                 <label class="form-label">Caja</label>
-                <select name="idcaja" class="form-select">
+                <select name="idcaja" class="form-select form-select-sm">
                     <option value="">Todas</option>
                     {% for c in cajas %}
-                    <option value="{{ c.idcaja }}">{{ c.nombre }}</option>
+                    <option value="{{ c.idpunto }}">{{ c.nombre }}</option>
                     {% endfor %}
                 </select>
             </div>
 
             <div class="col-md-2">
                 <label class="form-label">Producto</label>
-                <select name="idproducto" class="form-select">
+                <select name="idproducto" class="form-select form-select-sm">
                     <option value="">Todos</option>
                     {% for p in productos %}
                     <option value="{{ p.idproductos }}">{{ p.nombre }}</option>
@@ -64,49 +135,68 @@
 
             <div class="col-md-2">
                 <label class="form-label">Desde</label>
-                <input type="date" name="desde" class="form-control">
+                <input type="date" name="desde" class="form-control form-control-sm">
             </div>
 
             <div class="col-md-2">
                 <label class="form-label">Hasta</label>
-                <input type="date" name="hasta" class="form-control">
+                <input type="date" name="hasta" class="form-control form-control-sm">
             </div>
 
             <div class="col-md-2 d-flex align-items-end">
-                <button class="btn btn-dark w-100">
-                    <i class="bi bi-funnel"></i> Filtrar
+                <button class="btn btn-dark btn-sm w-100">
+                    Filtrar
                 </button>
             </div>
 
         </form>
     </div>
 
-    <!-- TABLA -->
-    <div class="card p-4">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Jornada</th>
-                    <th>Caja</th>
-                    <th>Producto</th>
-                    <th>Cant.</th>
-                    <th>Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for v in ventas %}
-                <tr>
-                    <td>{{ v.fecha_hora.strftime("%d/%m/%Y %H:%M") }}</td>
-                    <td>{{ v.jornada }}</td>
-                    <td>{{ v.caja }}</td>
-                    <td>{{ v.producto }}</td>
-                    <td>{{ v.cantidad }}</td>
-                    <td>$ {{ "%.2f"|format(v.subtotal) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- ================= BOTON PDF ================= -->
+    <div class="text-end mb-3 no-print">
+        <button class="btn btn-outline-dark btn-sm" onclick="window.print()">
+            📄 Exportar a PDF
+        </button>
+    </div>
+
+    <!-- ================= TABLA ================= -->
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Jornada</th>
+                <th>Caja</th>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th class="text-end">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in ventas %}
+            <tr>
+                <td>{{ v.fecha_hora.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td>{{ v.jornada }}</td>
+                <td>{{ v.caja }}</td>
+                <td>{{ v.producto }}</td>
+                <td class="text-center">{{ v.cantidad }}</td>
+                <td class="text-end">
+                    $ {{ "{:,.2f}".format(v.subtotal)
+                        .replace(",", "X")
+                        .replace(".", ",")
+                        .replace("X", ".") }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ================= TOTAL GENERAL ================= -->
+    <div class="total-box">
+        TOTAL GENERAL DE LA JORNADA:
+        $ {{ "{:,.2f}".format(total_general)
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".") }}
     </div>
 
 </div>

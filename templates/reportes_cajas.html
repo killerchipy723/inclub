@@ -11,6 +11,10 @@
     .btn-print {
         display: none;
     }
+
+    body {
+        margin: 0;
+    }
 }
 
 body {
@@ -50,6 +54,12 @@ body {
 .info-box {
     font-size: 13px;
     text-align: right;
+    line-height: 1.4;
+}
+
+/* ================= SELECTOR ================= */
+.selector {
+    margin-bottom: 25px;
 }
 
 /* ================= TABLA ================= */
@@ -106,10 +116,25 @@ body {
         </div>
 
         <div class="col-3 info-box">
-            <div><strong>Jornada:</strong> {{ jornada }}</div>
+            <div><strong>Jornada:</strong> {{ jornada_nombre }}</div>
             <div><strong>Emitido:</strong> {{ fecha_hora }}</div>
         </div>
     </div>
+
+    <!-- ================= SELECTOR JORNADA ================= -->
+    <form method="get" class="row selector">
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Seleccionar Jornada</label>
+            <select name="idjornada" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for j in jornadas %}
+                <option value="{{ j.idjornada }}"
+                    {% if j.idjornada == jornada_id %}selected{% endif %}>
+                    {{ j.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
 
     <!-- ================= BOTON PDF ================= -->
     <div class="text-end btn-print">

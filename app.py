@@ -1429,7 +1429,8 @@ def admin_dashboard():
         jornada_activa=jornada_activa
     )
 
-#plantilla de reportes
+from datetime import datetime
+
 @app.route("/admin/reportes", methods=["GET", "POST"])
 def admin_reportes():
     if "id" not in session:
@@ -1438,9 +1439,6 @@ def admin_reportes():
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # ======================
-    # FILTROS
-    # ======================
     idjornada = request.form.get("idjornada")
     idcaja = request.form.get("idcaja")
     idproducto = request.form.get("idproducto")
@@ -1455,7 +1453,7 @@ def admin_reportes():
         valores.append(idjornada)
 
     if idcaja:
-        condiciones.append("v.idcaja = %s")
+        condiciones.append("v.idpunto = %s")
         valores.append(idcaja)
 
     if idproducto:
@@ -1470,22 +1468,18 @@ def admin_reportes():
     if condiciones:
         where_sql = "WHERE " + " AND ".join(condiciones)
 
-    # ======================
-    # REPORTE
-    # ======================
     query = f"""
-        SELECT v.idventa,
-               v.fecha_hora,
+        SELECT v.fecha_hora,
                j.nombre AS jornada,
-               c.nombre AS caja,
-               p.nombre AS producto,
+               pto.nombre AS caja,
+               pr.nombre AS producto,
                d.cantidad,
                d.subtotal
         FROM ventas v
         JOIN jornadas j ON j.idjornada = v.idjornada
-        JOIN puntos_venta c ON c.idpunto = v.idpunto
+        JOIN puntos_venta pto ON pto.idpunto = v.idpunto
         JOIN ventas_detalle d ON d.idventa = v.idventa
-        JOIN productos p ON p.idproductos = d.idproductos
+        JOIN productos pr ON pr.idproductos = d.idproductos
         {where_sql}
         ORDER BY v.fecha_hora DESC
     """
@@ -1493,9 +1487,15 @@ def admin_reportes():
     cursor.execute(query, valores)
     ventas = cursor.fetchall()
 
-    # ======================
-    # COMBOS
-    # ======================
+    total_general = sum(v["subtotal"] for v in ventas)
+
+    jornada_nombre = "Todas"
+    if idjornada:
+        cursor.execute("SELECT nombre FROM jornadas WHERE idjornada = %s", (idjornada,))
+        j = cursor.fetchone()
+        if j:
+            jornada_nombre = j["nombre"]
+
     cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
     jornadas = cursor.fetchall()
 
@@ -1512,8 +1512,12 @@ def admin_reportes():
         ventas=ventas,
         jornadas=jornadas,
         cajas=cajas,
-        productos=productos
+        productos=productos,
+        total_general=total_general,
+        jornada_nombre=jornada_nombre,
+        fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M")
     )
+
 
 
 #------------------------------- Grafico -------------------------------
@@ -1544,40 +1548,58 @@ def grafico():
 @app.route("/reporte")
 def reporte_cajas():
 
+    idjornada = request.args.get("idjornada")
+
     conexion = getConnection()
-    cursor = conexion.cursor()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # 🔹 Nombre de la jornada (ajustá el WHERE si hace falta)
-    cursor.execute("""
-        SELECT nombre
-        FROM jornadas
-        WHERE estado = 'Finalizado'
-        ORDER BY idjornada DESC
-        LIMIT 1
-    """)
-    jornada = cursor.fetchone()
+    # 🔹 Si no selecciona jornada → tomar la última
+    if not idjornada:
+        cursor.execute("""
+            SELECT idjornada, nombre
+            FROM jornadas
+            ORDER BY idjornada DESC
+            LIMIT 1
+        """)
+        jornada = cursor.fetchone()
+        idjornada = jornada["idjornada"]
+    else:
+        cursor.execute("""
+            SELECT idjornada, nombre
+            FROM jornadas
+            WHERE idjornada = %s
+        """, (idjornada,))
+        jornada = cursor.fetchone()
 
-    # 🔹 Recaudación por punto de venta
+    # 🔹 Recaudación por punto de venta (FILTRADO POR JORNADA)
     cursor.execute("""
-        SELECT p.nombre AS punto, SUM(v.total) AS total
+        SELECT p.nombre AS punto, IFNULL(SUM(v.total),0) AS total
         FROM ventas v
         JOIN puntos_venta p ON p.idpunto = v.idpunto
+        WHERE v.idjornada = %s
         GROUP BY p.nombre
-    """)
-    cajas = cursor.fetchall()
+        ORDER BY p.nombre
+    """, (idjornada,))
 
-    # 🔹 Total general
-    total_general = sum(c["total"] for c in cajas if c["total"])
+    cajas = cursor.fetchall()
+    total_general = sum(c["total"] for c in cajas)
+
+    # 🔹 Para el selector
+    cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
+    jornadas = cursor.fetchall()
 
     conexion.close()
 
     return render_template(
         "reportes_cajas.html",
-        jornada=jornada["nombre"] if jornada else "Sin jornada",
+        jornadas=jornadas,
+        jornada_nombre=jornada["nombre"],
+        jornada_id=idjornada,
         fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M"),
         cajas=cajas,
         total_general=total_general
     )
+
 
 
 
