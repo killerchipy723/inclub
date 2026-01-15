@@ -215,7 +215,159 @@ def update_usuario(id):
 #--------------------------------------BOLETERIA---------------------------------
 @app.route("/boleteria")
 def boleteria_home():
-    return render_template("boleteria.html")
+
+    # ================= SEGURIDAD =================
+    if "id" not in session or session.get("rol") != "Boleteria":
+        return redirect(url_for("login"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    try:
+        # ================= JORNADA ACTIVA =================
+        cursor.execute("""
+            SELECT idjornada, nombre
+            FROM jornadas
+            WHERE estado = 'Activo'
+            ORDER BY idjornada DESC
+            LIMIT 1
+        """)
+        jornada = cursor.fetchone()
+
+        if not jornada:
+            conexion.close()
+            return render_template(
+                "boleteria.html",
+                jornada=None,
+                sectores=[],
+                recaudacion=0,
+                entradas_vendidas=0,
+                usuario=session["nombre"],
+                rol=session["rol"],
+                error="No hay jornada activa"
+            )
+
+        idjornada = jornada["idjornada"]
+
+        # ================= SECTORES =================
+        cursor.execute("""
+            SELECT idsector, nombre, precio
+            FROM sectores_entradas
+            WHERE idjornada = %s
+              AND estado = 'Activo'
+            ORDER BY nombre
+        """, (idjornada,))
+        sectores = cursor.fetchall()
+
+        # DEBUG útil (dejalo mientras probás)
+        print("SECTORES:", sectores)
+
+        # ================= RECAUDACIÓN =================
+        cursor.execute("""
+            SELECT COALESCE(SUM(total), 0) AS total
+            FROM ventas_entradas
+            WHERE idjornada = %s
+              AND estado = 'OK'
+        """, (idjornada,))
+        recaudacion = cursor.fetchone()["total"]
+
+        # ================= ENTRADAS VENDIDAS =================
+        cursor.execute("""
+            SELECT COALESCE(SUM(d.cantidad), 0) AS total
+            FROM ventas_entradas_detalle d
+            JOIN ventas_entradas v ON v.idventa = d.idventa
+            WHERE v.idjornada = %s
+              AND v.estado = 'OK'
+        """, (idjornada,))
+        entradas_vendidas = cursor.fetchone()["total"]
+
+        conexion.close()
+
+        return render_template(
+            "boleteria.html",
+            jornada=jornada,
+            sectores=sectores,
+            recaudacion=recaudacion,
+            entradas_vendidas=entradas_vendidas,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        conexion.close()
+        print("ERROR BOLETERIA:", e)
+        return "Error interno en boletería", 500
+    
+#REGISTRO DE VENTAS DE ENTRADAS
+
+@app.route("/registrar_venta_entrada", methods=["POST"])
+def registrar_venta_entrada():
+
+    if "id" not in session:
+        return jsonify({"ok": False, "msg": "Sesión expirada"}), 401
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+
+    try:
+        data = request.json
+        print("DATA RECIBIDA:", data)
+
+        idcliente = data["idcliente"]
+        idsector = data["idsector"]
+        cantidad = int(data["cantidad"])
+        total = float(data["total"])
+        idjornada = data["idjornada"]
+        idusuario = session["id"]
+
+        # 1️⃣ CABECERA
+        cursor.execute("""
+            INSERT INTO ventas_entradas
+            (idjornada, idusuario, cliente, total, estado)
+            VALUES (%s, %s, %s, %s, 'OK')
+        """, (idjornada, idusuario, idcliente, total))
+
+        idventa = cursor.lastrowid
+
+        # 2️⃣ PRECIO SECTOR
+        cursor.execute("""
+            SELECT precio
+            FROM sectores_entradas
+            WHERE idsector = %s AND estado = 'Activo'
+        """, (idsector,))
+
+        sector = cursor.fetchone()
+        if not sector:
+            raise Exception("Sector no encontrado")
+
+        precio = float(sector["precio"])
+
+        subtotal = precio * cantidad
+
+        # 3️⃣ DETALLE
+        cursor.execute("""
+            INSERT INTO ventas_entradas_detalle
+            (idventa, idsector, cantidad, precio_unitario, subtotal)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (idventa, idsector, cantidad, precio, subtotal))
+
+        conexion.commit()
+        conexion.close()
+
+        return jsonify({"ok": True, "msg": "Entrada emitida correctamente"})
+
+    except Exception as e:
+        print("ERROR REGISTRAR VENTA:", e)
+        conexion.rollback()
+        conexion.close()
+        return jsonify({"ok": False, "msg": str(e)}), 500
+
+
+
+
+
+
 #--------------------------------------Usuarios Puntos---------------------------
 
 # ==============================
