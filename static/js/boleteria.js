@@ -1,5 +1,5 @@
 // ======================================================
-// BOLETERIA.JS – VERSION LIMPIA Y FUNCIONAL
+// BOLETERIA.JS – VERSION FINAL ESTABLE CON IMPRESIÓN
 // ======================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cantidadInput  = document.getElementById("cantidad");
     const totalSpan      = document.getElementById("total");
     const btnVender      = document.getElementById("venderEntrada");
+    const idjornadaInput = document.getElementById("idjornada");
 
     // ===============================
     // AUTOCOMPLETE CLIENTES
@@ -24,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const q = clienteInput.value.trim();
         listaClientes.innerHTML = "";
 
-        // Si borra el texto → vuelve a Consumidor Final
+        // Consumidor final
         if (q.length === 0) {
             idclienteInput.value = "1";
             return;
@@ -42,11 +43,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 btn.className = "list-group-item list-group-item-action";
                 btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
 
-                btn.onclick = () => {
+                btn.addEventListener("click", () => {
                     clienteInput.value = c.apenomb;
-                    idclienteInput.value = c.idclientes; // ✅ ID REAL
+                    idclienteInput.value = c.idclientes;
                     listaClientes.innerHTML = "";
-                };
+                });
 
                 listaClientes.appendChild(btn);
             });
@@ -80,12 +81,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===============================
     // REGISTRAR VENTA
     // ===============================
-    btnVender.addEventListener("click", () => {
+    btnVender.addEventListener("click", async () => {
 
         const idcliente = idclienteInput.value;
         const idsector  = sectorSelect.value;
-        const cantidad  = cantidadInput.value;
-        const idjornada = document.getElementById("idjornada").value;
+        const cantidad  = parseInt(cantidadInput.value);
+        const idjornada = idjornadaInput.value;
         const total     = calcularTotal();
 
         // VALIDACIONES
@@ -100,61 +101,71 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const data = {
-            idcliente: idcliente,
-            idsector: idsector,
-            cantidad: cantidad,
-            total: total,
-            idjornada: idjornada
+            idcliente,
+            idsector,
+            cantidad,
+            total,
+            idjornada
         };
 
-        console.log("VENTA ENVIADA:", data); // 🧪 DEBUG
+        console.log("VENTA ENVIADA:", data);
 
-        fetch("/registrar_venta_entrada", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json())
-        .then(resp => {
+        try {
+            const res  = await fetch("/registrar_venta_entrada", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
 
-            if (resp.ok) {
+            const resp = await res.json();
 
-                location.reload();
-                alert("🎟 Venta registrada correctamente");
-
-                // IMPRIMIR TICKET
-                
-                imprimirTicket(resp.idventa);
-                
-
-                // LIMPIAR FORMULARIO
-                sectorSelect.selectedIndex = 0;
-                cantidadInput.value = 1;
-                calcularTotal();
-
-                clienteInput.value = "";
-                idclienteInput.value = "1";
-                listaClientes.innerHTML = "";
-
-            } else {
+            if (!resp.ok) {
                 alert("❌ " + resp.msg);
+                return;
             }
-        })
-        .catch(err => {
+
+            alert("🎟 Venta registrada correctamente");
+
+            // 🖨️ IMPRIMIR TICKET (GARANTIZADO)
+            imprimirTicket(resp.idventa);
+
+            // LIMPIAR FORMULARIO
+            sectorSelect.selectedIndex = 0;
+            cantidadInput.value = 1;
+            calcularTotal();
+
+            clienteInput.value = "";
+            idclienteInput.value = "1";
+            listaClientes.innerHTML = "";
+
+            // 🔄 RECARGA SUAVE DESPUÉS DE IMPRIMIR
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+
+        } catch (err) {
             console.error("Error venta:", err);
             alert("❌ Error al registrar la venta");
-        });
+        }
     });
 });
 
 // ===============================
-// IMPRIMIR TICKET
+// IMPRIMIR TICKET (FORMA CORRECTA)
 // ===============================
 function imprimirTicket(idventa) {
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = "/ticket_entrada/" + idventa;
-    document.body.appendChild(iframe);
+    const url = "/ticket_entrada/" + idventa;
+    const ventana = window.open(
+        url,
+        "_blank",
+        "width=400,height=600"
+    );
+
+    if (!ventana) {
+        alert("⚠️ El navegador bloqueó la impresión. Permití ventanas emergentes.");
+        return;
+    }
+
+    ventana.focus();
 }
+
