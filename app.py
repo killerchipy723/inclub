@@ -401,7 +401,7 @@ def ticket_entrada(idventa):
             d.precio_unitario,
             d.subtotal
         FROM ventas_entradas_detalle d
-        JOIN sectores s ON s.idsector = d.idsector
+        JOIN sectores_entradas s ON s.idsector = d.idsector
         WHERE d.idventa = %s
     """, (idventa,))
     detalle = cur.fetchall()

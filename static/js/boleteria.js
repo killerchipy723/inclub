@@ -154,18 +154,27 @@ document.addEventListener("DOMContentLoaded", () => {
 // IMPRIMIR TICKET (FORMA CORRECTA)
 // ===============================
 function imprimirTicket(idventa) {
-    const url = "/ticket_entrada/" + idventa;
-    const ventana = window.open(
-        url,
-        "_blank",
-        "width=400,height=600"
-    );
 
-    if (!ventana) {
-        alert("⚠️ El navegador bloqueó la impresión. Permití ventanas emergentes.");
-        return;
-    }
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.src = `/ticket_entrada/${idventa}`;
 
-    ventana.focus();
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+
+        // limpiar iframe después
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+        }, 1000);
+    };
 }
+
 
