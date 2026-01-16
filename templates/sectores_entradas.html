@@ -1,0 +1,195 @@
+{% include '/cabecera.html' %}
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      <form action="/guardar_sector_entrada" method="post">
+        <div class="row mb-3">
+
+          <div class="col">
+            <label>Jornada</label>
+            <select name="idjornada" class="form-control" required>
+              <option value="">Seleccione jornada</option>
+              {% for j in jornadas %}
+                <option value="{{ j.idjornada }}">{{ j.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col">
+            <label>Nombre del Sector</label>
+            <input type="text" name="nombre" class="form-control text-uppercase" required>
+          </div>
+
+          <div class="col">
+            <label>Precio</label>
+            <input type="number" step="0.01" name="precio" class="form-control" required>
+          </div>
+
+          <div class="col">
+            <label>Estado</label>
+            <select name="estado" class="form-control">
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>
+
+          <div class="col d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">
+              Registrar
+            </button>
+          </div>
+
+        </div>
+      </form>
+
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>JORNADA</th>
+            <th>SECTOR</th>
+            <th>PRECIO</th>
+            <th>ESTADO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for s in sectores %}
+          <tr>
+            <td>{{ s.idsector }}</td>
+            <td>{{ s.jornada }}</td>
+            <td>{{ s.nombre }}</td>
+            <td>${{ s.precio }}</td>
+            <td>{{ s.estado }}</td>
+            <td>
+              <button class="btn btn-warning btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ s.idsector }}">
+                Editar
+              </button>
+
+              <button class="btn btn-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal2{{ s.idsector }}">
+                Eliminar
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES -->
+{% for s in sectores %}
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="modal{{ s.idsector }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="/update_sector_entrada/{{ s.idsector }}" method="post">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Editar Sector</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <label>Jornada</label>
+          <select name="idjornada" class="form-control mb-2" required>
+            {% for j in jornadas %}
+              <option value="{{ j.idjornada }}"
+                {% if j.idjornada == s.idjornada %}selected{% endif %}>
+                {{ j.nombre }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <label>Nombre</label>
+          <input type="text" name="nombre"
+                 class="form-control mb-2 text-uppercase"
+                 value="{{ s.nombre }}" required>
+
+          <label>Precio</label>
+          <input type="number" step="0.01" name="precio"
+                 class="form-control mb-2"
+                 value="{{ s.precio }}" required>
+
+          <label>Estado</label>
+          <select name="estado" class="form-control">
+            <option value="Activo" {% if s.estado == 'Activo' %}selected{% endif %}>Activo</option>
+            <option value="Inactivo" {% if s.estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+          </select>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="submit">Actualizar</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="modal2{{ s.idsector }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Eliminar Sector</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        ¿Desea eliminar el sector <b>{{ s.nombre }}</b>?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <a href="/delete_sector_entrada/{{ s.idsector }}" class="btn btn-danger">Eliminar</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endfor %}
+
+<!-- MODAL CONFIRMACIÓN -->
+<div class="modal fade" id="modalOk" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Éxito</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        {{ message }}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" data-bs-dismiss="modal">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if message %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  new bootstrap.Modal(document.getElementById('modalOk')).show();
+});
+</script>
+{% endif %}
+
+{% include '/pie.html' %}

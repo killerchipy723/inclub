@@ -382,13 +382,13 @@ def ticket_entrada(idventa):
             v.idventa,
             v.fecha_emision,
             v.total,
-            v.cliente,
+            c.apenomb AS cliente,                
             j.nombre AS jornada,
             u.nombre AS usuario           
         FROM ventas_entradas v
         JOIN jornadas j ON j.idjornada = v.idjornada
         JOIN usuarios u ON u.idusuarios = v.idusuario
-        
+        JOIN clientes c ON c.idclientes = v.cliente        
         WHERE v.idventa = %s
     """, (idventa,))
     venta = cur.fetchone()
@@ -413,6 +413,180 @@ def ticket_entrada(idventa):
         venta=venta,
         detalle=detalle
     )
+
+#Reporte Boleteria
+@app.route("/reporte_boleteria")
+def reporte_boleteria():
+
+    if "id" not in session:
+        return redirect(url_for("login"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # ================= JORNADAS =================
+    cursor.execute("""
+        SELECT idjornada, nombre
+        FROM jornadas
+        ORDER BY idjornada DESC
+    """)
+    jornadas = cursor.fetchall()
+
+    # Jornada seleccionada
+    idjornada = request.args.get("idjornada")
+
+    if not idjornada and jornadas:
+        idjornada = jornadas[0]["idjornada"]
+
+    # ================= DATOS JORNADA =================
+    cursor.execute("""
+        SELECT nombre
+        FROM jornadas
+        WHERE idjornada = %s
+    """, (idjornada,))
+    jornada = cursor.fetchone()
+
+    # ================= RECAUDACIÓN POR BOLETERÍA =================
+    cursor.execute("""
+        SELECT 
+            u.nombre AS punto,
+            COALESCE(SUM(v.total), 0) AS total
+        FROM ventas_entradas v
+        INNER JOIN usuarios u ON u.idusuarios = v.idusuario
+        WHERE v.idjornada = %s
+          AND v.estado = 'OK'
+        GROUP BY u.idusuarios
+        ORDER BY u.nombre
+    """, (idjornada,))
+    cajas = cursor.fetchall()
+
+    # ================= TOTAL GENERAL =================
+    cursor.execute("""
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM ventas_entradas
+        WHERE idjornada = %s
+          AND estado = 'OK'
+    """, (idjornada,))
+    total_general = cursor.fetchone()["total"]
+
+    conexion.close()
+
+    return render_template(
+        "reporte_boleteria.html",
+        jornadas=jornadas,
+        jornada_id=int(idjornada),
+        jornada_nombre=jornada["nombre"] if jornada else "",
+        cajas=cajas,
+        total_general=total_general,
+        fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M")
+    )
+
+#REPORTE DETALLADO DE BOLETERIA
+
+
+
+from datetime import datetime
+
+@app.route("/reporte_boleteria_detallado", methods=["GET", "POST"])
+def reporte_boleteria_detallado():
+
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    try:
+        # ================= FILTROS =================
+        idjornada = request.form.get("idjornada")
+        idusuario = request.form.get("idusuario")
+        idsector  = request.form.get("idsector")
+
+        # ================= JORNADAS =================
+        cursor.execute("""
+            SELECT idjornada, nombre
+            FROM jornadas
+            ORDER BY idjornada DESC
+        """)
+        jornadas = cursor.fetchall()
+
+        # ================= USUARIOS BOLETERIA =================
+        cursor.execute("""
+            SELECT idusuarios, nombre
+            FROM usuarios
+            WHERE rol = 'Boleteria'
+            ORDER BY nombre
+        """)
+        usuarios = cursor.fetchall()
+
+        # ================= SECTORES =================
+        cursor.execute("""
+            SELECT idsector, nombre
+            FROM sectores_entradas
+            ORDER BY nombre
+        """)
+        sectores = cursor.fetchall()
+
+        # ================= QUERY PRINCIPAL =================
+        query = """
+            SELECT
+                v.fecha_emision,
+                j.nombre  AS jornada,
+                u.nombre  AS usuario,
+                s.nombre  AS sector,
+                d.cantidad,
+                d.precio_unitario,
+                d.subtotal
+            FROM ventas_entradas v
+            JOIN ventas_entradas_detalle d ON d.idventa = v.idventa
+            JOIN jornadas j ON j.idjornada = v.idjornada
+            JOIN sectores_entradas s ON s.idsector = d.idsector
+            JOIN usuarios u ON u.idusuarios = v.idusuario
+            WHERE v.estado = 'OK'
+        """
+
+        params = []
+
+        # ================= FILTROS =================
+        if idjornada:
+            query += " AND v.idjornada = %s"
+            params.append(idjornada)
+
+        if idusuario:
+            query += " AND v.idusuario = %s"
+            params.append(idusuario)
+
+        if idsector:
+            query += " AND d.idsector = %s"
+            params.append(idsector)
+
+        query += " ORDER BY v.fecha_emision DESC"
+
+        cursor.execute(query, params)
+        ventas = cursor.fetchall()
+
+        # ================= TOTAL GENERAL =================
+        total_general = sum(float(v["subtotal"]) for v in ventas)
+
+        fecha_hora = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        conexion.close()
+
+        return render_template(
+            "reporte_boleteria_detallado.html",
+            ventas=ventas,
+            jornadas=jornadas,
+            usuarios=usuarios,
+            sectores=sectores,
+            total_general=total_general,
+            fecha_hora=fecha_hora
+        )
+
+    except Exception as e:
+        conexion.close()
+        print("ERROR REPORTE BOLETERIA:", e)
+        return "Error interno en reporte", 500
+
 
 
 
@@ -1910,6 +2084,102 @@ def reporte_cajas():
         cajas=cajas,
         total_general=total_general
     )
+
+#--------------------------- Sectores Boleteria --------------------------------
+# ===============================
+# SECTORES ENTRADAS
+# ===============================
+
+@app.route("/sectores_entradas")
+def home_sectores_entradas():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT s.*, j.nombre AS jornada
+        FROM sectores_entradas s
+        INNER JOIN jornadas j ON j.idjornada = s.idjornada
+    """)
+    sectores = cursor.fetchall()
+
+    cursor.execute("SELECT idjornada, nombre FROM jornadas order by idjornada DESC")
+    jornadas = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "sectores_entradas.html",
+        sectores=sectores,
+        jornadas=jornadas,
+        message=request.args.get("message"),
+        usuario=session["nombre"],
+        rol=session["rol"]
+    )
+@app.route("/guardar_sector_entrada", methods=["POST"])
+def guardar_sector_entrada():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    idjornada = request.form["idjornada"]
+    nombre = request.form["nombre"].upper()
+    precio = request.form["precio"]
+    estado = request.form["estado"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("""
+        INSERT INTO sectores_entradas (idjornada, nombre, precio, estado)
+        VALUES (%s, %s, %s, %s)
+    """, (idjornada, nombre, precio, estado))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for("home_sectores_entradas",
+                            message="Sector registrado correctamente"))
+
+
+@app.route("/update_sector_entrada/<int:id>", methods=["POST"])
+def update_sector_entrada(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    idjornada = request.form["idjornada"]
+    nombre = request.form["nombre"].upper()
+    precio = request.form["precio"]
+    estado = request.form["estado"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("""
+        UPDATE sectores_entradas
+        SET idjornada=%s, nombre=%s, precio=%s, estado=%s
+        WHERE idsector=%s
+    """, (idjornada, nombre, precio, estado, id))
+
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for("home_sectores_entradas",
+                            message="Sector actualizado correctamente"))
+
+
+@app.route("/delete_sector_entrada/<int:id>")
+def delete_sector_entrada(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = getConnection()
+    cursor = conexion.cursor()
+    cursor.execute("DELETE FROM sectores_entradas WHERE idsector=%s", (id,))
+    conexion.commit()
+    conexion.close()
+
+    return redirect(url_for("home_sectores_entradas",
+                            message="Sector eliminado correctamente"))
 
 
 

@@ -121,11 +121,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (resp.ok) {
 
-                // MENSAJE
+                location.reload();
                 alert("🎟 Venta registrada correctamente");
 
                 // IMPRIMIR TICKET
+                
                 imprimirTicket(resp.idventa);
+                
 
                 // LIMPIAR FORMULARIO
                 sectorSelect.selectedIndex = 0;

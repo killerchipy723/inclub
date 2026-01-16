@@ -95,7 +95,7 @@ TOTAL $ {{ "{:,.2f}".format(venta.total).replace(",", "X").replace(".", ",").rep
 <!-- ================= CLIENTE ================= -->
 <div class="small">
 <b>Cliente:</b><br>
-{{ venta.apenomb or "PÚBLICO GENERAL" }}
+{{ venta.cliente or "PÚBLICO GENERAL" }}
 </div>
 
 <hr>
