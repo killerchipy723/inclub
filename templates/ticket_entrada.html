@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ticket Entrada</title>
+
+<style>
+@page {
+    size: 80mm auto;
+    margin: 0;
+}
+
+body {
+    width: 80mm;
+    margin: 0;
+    padding: 6px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.center { text-align: center; }
+.right { text-align: right; }
+.bold { font-weight: bold; }
+.small { font-size: 10px; }
+hr { border-top: 1px dashed #000; margin: 6px 0; }
+</style>
+</head>
+
+<body onload="window.print()">
+
+<div class="center">
+    <img src="/static/img/logo_ticketjets.png" width="90"><br>
+    <div class="bold">TICKETJETS</div>
+    <div class="small">Sistema de Boletería</div>
+</div>
+
+<hr>
+
+<div class="small">
+<b>Ticket Nº:</b> {{ venta.idventa }}<br>
+<b>Fecha:</b> {{ venta.fecha_emision.strftime("%d/%m/%Y %H:%M") }}<br>
+<b>Usuario:</b> {{ venta.usuario }}
+</div>
+
+<hr>
+
+<div class="center bold">
+{{ venta.jornada }}
+</div>
+
+<hr>
+
+{% for d in detalle %}
+<div>
+{{ d.sector }} x{{ d.cantidad }}<br>
+$ {{ "{:,.2f}".format(d.precio_unitario).replace(",", "X").replace(".", ",").replace("X", ".") }}
+</div>
+{% endfor %}
+
+<hr>
+
+<div class="right bold">
+TOTAL $ {{ "{:,.2f}".format(venta.total).replace(",", "X").replace(".", ",").replace("X", ".") }}
+</div>
+
+<hr>
+
+<div class="small">
+Cliente:<br>
+{{ venta.cliente or "PÚBLICO GENERAL" }}
+</div>
+
+<hr>
+
+<div class="center">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=TICKETJETS-{{ venta.idventa }}">
+</div>
+
+<hr>
+
+<div class="center small">
+Entrada válida únicamente para la jornada indicada<br>
+Conserve este ticket
+</div>
+<script src="/static/js/boleteria.js"></script>
+</body>
+</html>

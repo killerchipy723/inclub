@@ -137,11 +137,21 @@ document.addEventListener("DOMContentLoaded", () => {
         .then(res => res.json())
         .then(resp => {
             if (resp.ok) {
-                alert("🎟 Venta registrada correctamente");
-                location.reload();
-            } else {
-                alert("❌ " + resp.msg);
-            }
+    // 1️⃣ Mensaje
+    alert("🎟 Venta registrada correctamente");
+
+    // 2️⃣ Abrir ticket en iframe oculto y disparar impresión
+    imprimirTicket(resp.idventa);
+
+    // 3️⃣ Limpiar formulario o recargar si querés
+    sectorSelect.selectedIndex = 0;
+    cantidadInput.value = 1;
+    calcularTotal();
+    clienteInput.value = "";
+    idclienteInput.value = "1";
+    listaClientes.innerHTML = "";
+}
+
         })
         .catch(err => {
             console.error(err);
@@ -150,3 +160,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 });
+
+function imprimirTicket(idventa) {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "/ticket_entrada/" + idventa;
+    document.body.appendChild(iframe);
+}
+

@@ -355,13 +355,64 @@ def registrar_venta_entrada():
         conexion.commit()
         conexion.close()
 
-        return jsonify({"ok": True, "msg": "Entrada emitida correctamente"})
+        return jsonify({
+            "ok": True,
+            "msg": "Entrada emitida correctamente",
+            "idventa": idventa
+})
+
 
     except Exception as e:
         print("ERROR REGISTRAR VENTA:", e)
         conexion.rollback()
         conexion.close()
         return jsonify({"ok": False, "msg": str(e)}), 500
+    
+
+#RUTA PARA TICKET DE VENTA
+@app.route("/ticket_entrada/<int:idventa>")
+def ticket_entrada(idventa):
+
+    con = getConnection()
+    cur = con.cursor(pymysql.cursors.DictCursor)
+
+    # CABECERA
+    cur.execute("""
+        SELECT 
+            v.idventa,
+            v.fecha_emision,
+            v.total,
+            v.cliente,
+            j.nombre AS jornada,
+            u.nombre AS usuario
+        FROM ventas_entradas v
+        JOIN jornadas j ON j.idjornada = v.idjornada
+        JOIN usuarios u ON u.idusuarios = v.idusuario
+        WHERE v.idventa = %s
+    """, (idventa,))
+    venta = cur.fetchone()
+
+    # DETALLE
+    cur.execute("""
+        SELECT 
+            s.nombre AS sector,
+            d.cantidad,
+            d.precio_unitario,
+            d.subtotal
+        FROM ventas_entradas_detalle d
+        JOIN sectores s ON s.idsector = d.idsector
+        WHERE d.idventa = %s
+    """, (idventa,))
+    detalle = cur.fetchall()
+
+    con.close()
+
+    return render_template(
+        "ticket_entrada.html",
+        venta=venta,
+        detalle=detalle
+    )
+
 
 
 
