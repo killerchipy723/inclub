@@ -30,7 +30,7 @@
                      placeholder="Consumidor Final"
                      autocomplete="off">
 
-              <input type="hidden" id="idcliente" value="1">
+              <input type="hidden" id="idcliente" name="cliente" value="1" required>
               <input type="hidden" id="idjornada" value="{{ jornada.idjornada }}">
 
               <div id="listaClientes" class="list-group position-absolute w-100"></div>
@@ -39,7 +39,7 @@
                       class="btn btn-outline-primary btn-sm mt-1 w-100"
                       data-bs-toggle="modal"
                       data-bs-target="#modalCliente">
-                ➕ Cliente
+                ➕ Agregar Nuevos Cliente
               </button>
             </div>
 

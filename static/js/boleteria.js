@@ -1,88 +1,67 @@
+// ======================================================
+// BOLETERIA.JS – VERSION LIMPIA Y FUNCIONAL
+// ======================================================
+
 document.addEventListener("DOMContentLoaded", () => {
 
-    const clienteInput = document.getElementById("cliente");
-    const clienteList = document.getElementById("clientes-list");
-    const sectorSelect = document.getElementById("sector");
-    const precioInput = document.getElementById("precio");
+    // =========================
+    // ELEMENTOS
+    // =========================
+    const clienteInput   = document.getElementById("clienteInput");
+    const listaClientes  = document.getElementById("listaClientes");
+    const idclienteInput = document.getElementById("idcliente");
 
-    // ================= AUTOCOMPLETE CLIENTES =================
-    clienteInput.addEventListener("keyup", async () => {
+    const sectorSelect   = document.getElementById("sector");
+    const cantidadInput  = document.getElementById("cantidad");
+    const totalSpan      = document.getElementById("total");
+    const btnVender      = document.getElementById("venderEntrada");
+
+    // ===============================
+    // AUTOCOMPLETE CLIENTES
+    // ===============================
+    clienteInput.addEventListener("input", async () => {
 
         const q = clienteInput.value.trim();
-        if (q.length < 2) {
-            clienteList.innerHTML = "";
+        listaClientes.innerHTML = "";
+
+        // Si borra el texto → vuelve a Consumidor Final
+        if (q.length === 0) {
+            idclienteInput.value = "1";
             return;
         }
 
-        const res = await fetch(`/api/clientes?q=${q}`);
-        const data = await res.json();
+        if (q.length < 2) return;
 
-        clienteList.innerHTML = "";
+        try {
+            const res = await fetch(`/buscar_clientes?q=${q}`);
+            const clientes = await res.json();
 
-        data.forEach(c => {
-            const item = document.createElement("div");
-            item.classList.add("list-group-item", "list-group-item-action");
-            item.textContent = `${c.nombre} - DNI ${c.dni}`;
-            item.onclick = () => {
-                clienteInput.value = c.nombre;
-                clienteList.innerHTML = "";
-            };
-            clienteList.appendChild(item);
-        });
+            clientes.forEach(c => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "list-group-item list-group-item-action";
+                btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
+
+                btn.onclick = () => {
+                    clienteInput.value = c.apenomb;
+                    idclienteInput.value = c.idclientes; // ✅ ID REAL
+                    listaClientes.innerHTML = "";
+                };
+
+                listaClientes.appendChild(btn);
+            });
+
+        } catch (error) {
+            console.error("Error buscando clientes:", error);
+        }
     });
-
-    // ================= SECTOR → PRECIO =================
-    sectorSelect.addEventListener("change", () => {
-        const option = sectorSelect.options[sectorSelect.selectedIndex];
-        const precio = option.dataset.precio || 0;
-        precioInput.value = precio;
-    });
-
-});
-
-// ================= AUTOCOMPLETE CLIENTES =================
-  const clienteInput = document.getElementById("clienteInput");
-  const listaClientes = document.getElementById("listaClientes");
-  const idclienteInput = document.getElementById("idcliente");
-
-  clienteInput.addEventListener("input", async () => {
-    const q = clienteInput.value.trim();
-    listaClientes.innerHTML = "";
-    idclienteInput.value = "1";
-
-    if (q.length < 2) return;
-
-    const res = await fetch(`/buscar_clientes?q=${q}`);
-    const clientes = await res.json();
-
-    clientes.forEach(c => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "list-group-item list-group-item-action";
-      btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
-      btn.onclick = () => {
-        clienteInput.value = c.apenomb;
-        idclienteInput.value = c.idclientes;
-        listaClientes.innerHTML = "";
-      };
-      listaClientes.appendChild(btn);
-    });
-  });
-
-// VENTA DE ENTRADAS
-document.addEventListener("DOMContentLoaded", () => {
-
-    const sectorSelect = document.getElementById("sector");
-    const cantidadInput = document.getElementById("cantidad");
-    const totalSpan = document.getElementById("total");
-    const btnVender = document.getElementById("venderEntrada");
 
     // ===============================
     // CALCULAR TOTAL
     // ===============================
     function calcularTotal() {
-        const option = sectorSelect.options[sectorSelect.selectedIndex];
-        const precio = option ? parseFloat(option.dataset.precio || 0) : 0;
+        const option   = sectorSelect.options[sectorSelect.selectedIndex];
+        const precio   = option ? parseFloat(option.dataset.precio || 0) : 0;
         const cantidad = parseInt(cantidadInput.value || 0);
 
         const total = precio * cantidad;
@@ -103,12 +82,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===============================
     btnVender.addEventListener("click", () => {
 
-        const idcliente = document.getElementById("idcliente").value;
-        const idsector = sectorSelect.value;
-        const cantidad = cantidadInput.value;
+        const idcliente = idclienteInput.value;
+        const idsector  = sectorSelect.value;
+        const cantidad  = cantidadInput.value;
         const idjornada = document.getElementById("idjornada").value;
-        const total = calcularTotal();
+        const total     = calcularTotal();
 
+        // VALIDACIONES
         if (!idsector) {
             alert("⚠️ Seleccione un sector");
             return;
@@ -127,6 +107,8 @@ document.addEventListener("DOMContentLoaded", () => {
             idjornada: idjornada
         };
 
+        console.log("VENTA ENVIADA:", data); // 🧪 DEBUG
+
         fetch("/registrar_venta_entrada", {
             method: "POST",
             headers: {
@@ -136,35 +118,41 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .then(res => res.json())
         .then(resp => {
+
             if (resp.ok) {
-    // 1️⃣ Mensaje
-    alert("🎟 Venta registrada correctamente");
 
-    // 2️⃣ Abrir ticket en iframe oculto y disparar impresión
-    imprimirTicket(resp.idventa);
+                // MENSAJE
+                alert("🎟 Venta registrada correctamente");
 
-    // 3️⃣ Limpiar formulario o recargar si querés
-    sectorSelect.selectedIndex = 0;
-    cantidadInput.value = 1;
-    calcularTotal();
-    clienteInput.value = "";
-    idclienteInput.value = "1";
-    listaClientes.innerHTML = "";
-}
+                // IMPRIMIR TICKET
+                imprimirTicket(resp.idventa);
 
+                // LIMPIAR FORMULARIO
+                sectorSelect.selectedIndex = 0;
+                cantidadInput.value = 1;
+                calcularTotal();
+
+                clienteInput.value = "";
+                idclienteInput.value = "1";
+                listaClientes.innerHTML = "";
+
+            } else {
+                alert("❌ " + resp.msg);
+            }
         })
         .catch(err => {
-            console.error(err);
+            console.error("Error venta:", err);
             alert("❌ Error al registrar la venta");
         });
     });
-
 });
 
+// ===============================
+// IMPRIMIR TICKET
+// ===============================
 function imprimirTicket(idventa) {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     iframe.src = "/ticket_entrada/" + idventa;
     document.body.appendChild(iframe);
 }
-

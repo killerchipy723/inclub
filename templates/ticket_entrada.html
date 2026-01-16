@@ -7,35 +7,58 @@
 <style>
 @page {
     size: 80mm auto;
-    margin: 0;
+    margin: 2mm;
 }
 
 body {
-    width: 80mm;
+    width: 76mm;
     margin: 0;
-    padding: 6px;
+    padding: 0;
     font-family: monospace;
     font-size: 12px;
+    line-height: 1.35;
+    color: #000;
 }
 
 .center { text-align: center; }
 .right { text-align: right; }
 .bold { font-weight: bold; }
 .small { font-size: 10px; }
-hr { border-top: 1px dashed #000; margin: 6px 0; }
+
+hr {
+    border: none;
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+}
+
+.logo {
+    max-width: 180px;
+    margin-bottom: 4px;
+}
+
+.total {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.qr {
+    margin: 6px 0;
+}
 </style>
 </head>
 
 <body onload="window.print()">
 
+<!-- ================= LOGO ================= -->
 <div class="center">
-    <img src="/static/img/logo_ticketjets.png" width="90"><br>
+    <img src="/static/img/logoJetSmall.png" class="logo"><br>
     <div class="bold">TICKETJETS</div>
     <div class="small">Sistema de Boletería</div>
 </div>
 
 <hr>
 
+<!-- ================= DATOS TICKET ================= -->
 <div class="small">
 <b>Ticket Nº:</b> {{ venta.idventa }}<br>
 <b>Fecha:</b> {{ venta.fecha_emision.strftime("%d/%m/%Y %H:%M") }}<br>
@@ -44,44 +67,51 @@ hr { border-top: 1px dashed #000; margin: 6px 0; }
 
 <hr>
 
+<!-- ================= JORNADA ================= -->
 <div class="center bold">
 {{ venta.jornada }}
 </div>
 
 <hr>
 
+<!-- ================= DETALLE ================= -->
 {% for d in detalle %}
 <div>
-{{ d.sector }} x{{ d.cantidad }}<br>
-$ {{ "{:,.2f}".format(d.precio_unitario).replace(",", "X").replace(".", ",").replace("X", ".") }}
+<b>{{ d.sector }}</b><br>
+Cant: {{ d.cantidad }} x $
+{{ "{:,.2f}".format(d.precio_unitario).replace(",", "X").replace(".", ",").replace("X", ".") }}
 </div>
 {% endfor %}
 
 <hr>
 
-<div class="right bold">
+<!-- ================= TOTAL ================= -->
+<div class="right total">
 TOTAL $ {{ "{:,.2f}".format(venta.total).replace(",", "X").replace(".", ",").replace("X", ".") }}
 </div>
 
 <hr>
 
+<!-- ================= CLIENTE ================= -->
 <div class="small">
-Cliente:<br>
-{{ venta.cliente or "PÚBLICO GENERAL" }}
+<b>Cliente:</b><br>
+{{ venta.apenomb or "PÚBLICO GENERAL" }}
 </div>
 
 <hr>
 
-<div class="center">
+<!-- ================= QR ================= -->
+<div class="center qr">
 <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=TICKETJETS-{{ venta.idventa }}">
 </div>
 
 <hr>
 
+<!-- ================= LEYENDA ================= -->
 <div class="center small">
 Entrada válida únicamente para la jornada indicada<br>
 Conserve este ticket
 </div>
-<script src="/static/js/boleteria.js"></script>
+
 </body>
 </html>

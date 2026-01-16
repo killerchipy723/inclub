@@ -384,10 +384,11 @@ def ticket_entrada(idventa):
             v.total,
             v.cliente,
             j.nombre AS jornada,
-            u.nombre AS usuario
+            u.nombre AS usuario           
         FROM ventas_entradas v
         JOIN jornadas j ON j.idjornada = v.idjornada
         JOIN usuarios u ON u.idusuarios = v.idusuario
+        
         WHERE v.idventa = %s
     """, (idventa,))
     venta = cur.fetchone()
