@@ -485,7 +485,6 @@ def reporte_boleteria():
 
 
 
-from datetime import datetime
 
 @app.route("/reporte_boleteria_detallado", methods=["GET", "POST"])
 def reporte_boleteria_detallado():
@@ -586,12 +585,6 @@ def reporte_boleteria_detallado():
         conexion.close()
         print("ERROR REPORTE BOLETERIA:", e)
         return "Error interno en reporte", 500
-
-
-
-
-
-
 
 
 #--------------------------------------Usuarios Puntos---------------------------
@@ -792,7 +785,7 @@ def ventas_home():
 
 
 
-#---------------------REGISTRAR VENTA-----------------
+#------------------------------------REGISTRAR VENTA-----------------------------
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
     if "id" not in session:
@@ -2180,22 +2173,6 @@ def delete_sector_entrada(id):
 
     return redirect(url_for("home_sectores_entradas",
                             message="Sector eliminado correctamente"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
