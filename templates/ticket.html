@@ -20,7 +20,7 @@
     html, body {
         margin: 0;
         padding: 0;
-        width: 76mm;
+        width: 79mm;
     }
 }
 
@@ -75,6 +75,15 @@ td {
     width: 140px;      /* ⬅ MÁS GRANDE */
     margin-top: 8px;
 }
+/* =========================
+   PRODUCTO
+========================= */
+.producto {
+    font-size: 21px;      /* ⬅ AJUSTA AQUÍ EL TAMAÑO */
+    font-weight: bold;    /* opcional */
+    line-height: 1.4;
+}
+
 </style>
 </head>
 
@@ -100,14 +109,13 @@ window.onafterprint = function () {
 ========================= -->
 <div class="center bold" style="font-size:14px;">TicketJets</div>
 <div class="center">DOCUMENTO NO VÁLIDO COMO FACTURA</div>
-<div class="center">CUIT: XX-XXXXXXXX-X</div>
 
 <hr>
 
 <!-- =========================
      DATOS VENTA
 ========================= -->
-<div><b>Jornada:</b> {{ jornada }}</div>
+<div><b>Evento:</b> {{ jornada }}</div>
 <div><b>Venta Nº:</b> {{ idventa }}</div>
 <div><b>Fecha:</b> {{ fecha_hora }}</div>
 
@@ -128,7 +136,7 @@ window.onafterprint = function () {
 <table>
 {% for d in detalle %}
 <tr>
-    <td colspan="2">{{ d.producto }}</td>
+    <td colspan="2" class="producto">{{ d.producto }}</td>
 </tr>
 <tr>
     <td>{{ d.cantidad }} x</td>
