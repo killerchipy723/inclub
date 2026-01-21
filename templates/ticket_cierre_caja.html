@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body {
+  width: 80mm;
+  font-family: monospace;
+  font-size: 12px;
+}
+hr {
+  border: none;
+  border-top: 1px dashed #000;
+}
+.text-center { text-align: center; }
+</style>
+</head>
+<body onload="window.print()">
+
+<div class="text-center">
+  <strong>CIERRE DE CAJA</strong><br>
+  {{ punto }}<br>
+  Usuario: {{ usuario }}<br>
+  
+</div>
+
+<hr>
+
+{% for p in pagos %}
+{{ p.modo.ljust(15) }} ${{ "%.2f"|format(p.total) }}<br>
+{% endfor %}
+
+<hr>
+
+<strong>TOTAL: ${{ "%.2f"|format(total) }}</strong>
+
+<hr>
+
+<div class="text-center">
+  Gracias
+</div>
+
+</body>
+</html>

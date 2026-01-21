@@ -8,9 +8,6 @@ import base64
 from io import BytesIO
 
 
-
-
-
 app = Flask(__name__)
 app.secret_key = "inclub_secreto_2026"
 
@@ -270,45 +267,140 @@ def update_usuario(id):
 
     return redirect(url_for("home_userReg"))
 
-#Ruta para cerrar caja
-@app.route("/cerrar_caja", methods=["POST"])
-def cerrar_caja():
+#Estado de Cajas
+@app.route("/estado_caja")
+def estado_caja():
 
-    if "idcaja" not in session:
-        return jsonify(ok=False, msg="No hay caja activa")
-
-    idcaja = session["idcaja"]
+    if "idjornada" not in session or "idpunto" not in session:
+        return jsonify(estado="cerrada")
 
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # 🔴 Verificar si ya está cerrada
     cursor.execute("""
         SELECT estado
-        FROM cajas
-        WHERE idcaja=%s
-    """, (idcaja,))
-    caja = cursor.fetchone()
+        FROM jornadas_puntos
+        WHERE idjornada = %s AND idpunto = %s
+    """, (session["idjornada"], session["idpunto"]))
 
-    if not caja or caja["estado"] != "Abierta":
+    row = cursor.fetchone()
+    conexion.close()
+
+    if not row:
+        return jsonify(estado="cerrada")
+
+    return jsonify(estado=row["estado"].lower())
+
+
+#Ruta para cerrar caja
+@app.route("/cerrar_caja", methods=["POST"])
+def cerrar_caja():
+
+    if "idjornada" not in session or "idpunto" not in session:
+        return jsonify(ok=False, msg="No hay caja activa")
+
+    idjornada = session["idjornada"]
+    idpunto = session["idpunto"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # Verificar estado actual
+    cursor.execute("""
+        SELECT estado
+        FROM jornadas_puntos
+        WHERE idjornada = %s AND idpunto = %s
+    """, (idjornada, idpunto))
+
+    jp = cursor.fetchone()
+
+    if not jp or jp["estado"] != "Abierto":
         conexion.close()
         return jsonify(ok=False, msg="La caja ya está cerrada")
 
-    # 🟢 Cerrar caja
+    # Cerrar caja
     cursor.execute("""
-        UPDATE cajas
-        SET estado='Cerrada',
-            fecha_cierre=NOW()
-        WHERE idcaja=%s
-    """, (idcaja,))
+        UPDATE jornadas_puntos
+        SET estado = 'Cerrado'
+        WHERE idjornada = %s AND idpunto = %s
+    """, (idjornada, idpunto))
 
     conexion.commit()
+
+    # Total vendido por esa caja
+    cursor.execute("""
+        SELECT COALESCE(SUM(d.subtotal),0) AS total
+        FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        WHERE v.idjornada = %s AND v.idpunto = %s
+    """, (idjornada, idpunto))
+
+    total = cursor.fetchone()["total"]
+
     conexion.close()
 
-    # ❗ OPCIONAL (pero recomendable)
-    session.pop("idcaja", None)
+    return jsonify(ok=True, total=float(total))
 
-    return jsonify(ok=True, total=0)
+# ----------TIKET CAJA---------------
+@app.route("/ticket_cierre_caja")
+def ticket_cierre_caja():
+
+    if "idjornada" not in session or "idpunto" not in session:
+        return "No hay caja activa", 403
+
+    idjornada = session["idjornada"]
+    idpunto = session["idpunto"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # 🔹 Usuario (usar lo que ya existe en sesión)
+    usuario = session.get("usuario", "OPERADOR")
+
+    cursor.execute("""
+        SELECT nombre
+        FROM puntos_venta
+        WHERE idpunto = %s
+    """, (idpunto,))
+
+    punto = cursor.fetchone()
+    nombre_punto = punto["nombre"] if punto else "PUNTO"
+
+    # Totales por medio de pago
+    cursor.execute("""
+        SELECT mp.modo,
+               SUM(d.subtotal) total
+        FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        JOIN modopago mp ON mp.idmodopago = v.idmodopago
+        WHERE v.idjornada = %s AND v.idpunto = %s
+        GROUP BY mp.modo
+    """, (idjornada, idpunto))
+
+    pagos = cursor.fetchall()
+
+    # Total general
+    cursor.execute("""
+        SELECT COALESCE(SUM(d.subtotal),0) total
+        FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        WHERE v.idjornada = %s AND v.idpunto = %s
+    """, (idjornada, idpunto))
+
+    total = cursor.fetchone()["total"]
+
+    conexion.close()
+
+    return render_template(
+        "ticket_cierre_caja.html",
+        usuario=usuario,
+        punto=nombre_punto,
+        pagos=pagos,
+        total=total
+    )
+
+
+
 
 #--------------------------------------BOLETERIA---------------------------------
 @app.route("/boleteria")
@@ -1495,11 +1587,6 @@ def agregar_producto_jornada(idjornada, idproducto):
     conexion.close()
 
     return redirect(f"/Jornadas_Admin/{idjornada}")
-
-
-
-
-
 
 
 #-----------------------------Productos----------------------------------

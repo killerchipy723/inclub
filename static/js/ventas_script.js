@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    let idcliente = document.getElementById("idcliente").value || "1";
+    const idcliente = document.getElementById("idcliente").value || "1";
 
     const formData = new FormData();
     formData.append("cliente", idcliente);
@@ -125,8 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
       formData.append("productos[]", p.id);
       formData.append("cantidades[]", p.cantidad);
       formData.append("precios[]", p.precio);
-
-      // 🔹 IMPORTANTE: enviar cortesía como 1 / 0
       formData.append("cortesias[]", p.cortesia ? "1" : "0");
     });
 
@@ -138,14 +136,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
 
     if (!data.success) {
-      alert("Error al registrar la venta");
+      alert(data.msg || "Error al registrar la venta");
       return;
     }
 
     imprimirTicket(data.idventa);
     resetearVenta();
-    actualizarRecaudacionCaja()
-
   });
 
   // ================= IMPRIMIR =================
@@ -198,23 +194,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-// Actualiza recaudacion por punto de ventas
-async function actualizarRecaudacionCaja() {
-  const res = await fetch("/recaudacion_actual");
-  const data = await res.json();
+// ================= CERRAR CAJA (DESDE CABECERA) =================
+const btnCerrarCaja = document.getElementById("cerrarCaja");
 
-  const total = new Intl.NumberFormat("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(data.total);
-
-  const div = document.getElementById("recaudacionCaja");
-  if (div) {
-    div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
-  }
-}
-
-document.getElementById("cerrarCaja").addEventListener("click", async () => {
+if (btnCerrarCaja) {
+  btnCerrarCaja.addEventListener("click", async () => {
 
     if (!confirm("¿Confirmar cierre de caja?")) return;
 
@@ -222,10 +206,40 @@ document.getElementById("cerrarCaja").addEventListener("click", async () => {
     const data = await res.json();
 
     if (data.ok) {
-        alert("✅ Caja cerrada correctamente\nTotal: $" + data.total);
-        location.reload();
+      window.open("/ticket_cierre_caja", "_blank");
+      alert("✅ Caja cerrada correctamente\nTotal: $" + data.total);
+      location.reload();
     } else {
-        alert("❌ " + data.msg);
+      alert("❌ " + data.msg);
     }
-});
+  });
+}
 
+
+// DESABILITAR EL BOTON COBRAR
+async function verificarEstadoCaja() {
+  try {
+    const res = await fetch("/estado_caja");
+    const data = await res.json();
+
+    const btnCobrar = document.getElementById("procesarVenta");
+    const badge = document.getElementById("estadoCaja");
+
+    if (!btnCobrar || !badge) return;
+
+    if (data.estado === "abierto") {
+      btnCobrar.disabled = false;
+      badge.textContent = "Caja Abierta";
+      badge.className = "badge bg-success ms-2";
+    } else {
+      btnCobrar.disabled = true;
+      badge.textContent = "Caja Cerrada";
+      badge.className = "badge bg-danger ms-2";
+    }
+  } catch (e) {
+    console.error("Error verificando estado de caja", e);
+  }
+}
+
+// Ejecutar al cargar la pantalla
+verificarEstadoCaja();

@@ -23,7 +23,8 @@
                data-precio="{{ p.importe }}">
 
             <div class="card-body p-1 d-flex flex-column justify-content-between">
-              <div class="nombre-producto fw-semibold text-truncate" style="font-size:0.6rem;">
+              <div class="nombre-producto fw-semibold text-truncate"
+                   style="font-size:0.6rem;">
                 {{ p.nombre }}
               </div>
 
@@ -43,20 +44,8 @@
     </section>
 
     <!-- ================= CARRITO / CAJA ================= -->
-    <aside class="carrito-pos bg-dark text-white p-2 rounded" style="width: 420px;">
-
-      <!-- 🔹 INFO CAJA -->
-      <div class="mb-2 p-2 border rounded text-center">
-        <div id="recaudacionCaja" class="fw-bold text-success">
-          💰 Recaudación Parcial: $ 0,00
-        </div>
-
-        <button id="cerrarCaja"
-                type="button"
-                class="btn btn-danger btn-sm w-100 mt-2">
-          🔒 Cerrar Caja
-        </button>
-      </div>
+    <aside class="carrito-pos bg-dark text-white p-2 rounded"
+           style="width: 420px;">
 
       <!-- 🔴 FORMULARIO DE VENTA -->
       <form id="formVenta">
@@ -71,7 +60,11 @@
                    placeholder="Consumidor Final"
                    autocomplete="off">
 
-            <input type="hidden" id="idcliente" name="cliente" value="1" required>
+            <input type="hidden"
+                   id="idcliente"
+                   name="cliente"
+                   value="1"
+                   required>
 
             <div id="listaClientes"
                  class="list-group position-absolute w-100"></div>
@@ -131,7 +124,7 @@
   </div>
 </div>
 
-<!-- MODAL CLIENTES -->
+<!-- ================= MODAL CLIENTES ================= -->
 <div class="modal fade" id="modalCliente" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -176,8 +169,7 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-primary"
-                  type="submit">
+          <button class="btn btn-primary" type="submit">
             GUARDAR
           </button>
         </div>
