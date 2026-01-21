@@ -213,3 +213,19 @@ async function actualizarRecaudacionCaja() {
     div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
   }
 }
+
+document.getElementById("cerrarCaja").addEventListener("click", async () => {
+
+    if (!confirm("¿Confirmar cierre de caja?")) return;
+
+    const res = await fetch("/cerrar_caja", { method: "POST" });
+    const data = await res.json();
+
+    if (data.ok) {
+        alert("✅ Caja cerrada correctamente\nTotal: $" + data.total);
+        location.reload();
+    } else {
+        alert("❌ " + data.msg);
+    }
+});
+

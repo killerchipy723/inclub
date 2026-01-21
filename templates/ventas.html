@@ -17,7 +17,7 @@
         {% for p in productos %}
         <div class="col-auto">
           <div class="card producto-card text-center p-1 bg-dark text-white"
-               style="width:120px;"  
+               style="width:120px;"
                data-id="{{ p.idproductos }}"
                data-nombre="{{ p.nombre }}"
                data-precio="{{ p.importe }}">
@@ -42,35 +42,51 @@
       </div>
     </section>
 
-    <!-- ================= CARRITO ================= -->
+    <!-- ================= CARRITO / CAJA ================= -->
     <aside class="carrito-pos bg-dark text-white p-2 rounded" style="width: 420px;">
 
-      <!-- 🔴 FORMULARIO DE VENTA (CLAVE) -->
+      <!-- 🔹 INFO CAJA -->
+      <div class="mb-2 p-2 border rounded text-center">
+        <div id="recaudacionCaja" class="fw-bold text-success">
+          💰 Recaudación Parcial: $ 0,00
+        </div>
+
+        <button id="cerrarCaja"
+                type="button"
+                class="btn btn-danger btn-sm w-100 mt-2">
+          🔒 Cerrar Caja
+        </button>
+      </div>
+
+      <!-- 🔴 FORMULARIO DE VENTA -->
       <form id="formVenta">
 
         <!-- DATOS VENTA -->
         <div class="datos-venta mb-2">
           <div class="cliente-autocomplete position-relative">
 
-              <input type="text"
-                     id="clienteInput"
-                     class="form-control form-control-sm"
-                     placeholder="Consumidor Final"
-                     autocomplete="off">
+            <input type="text"
+                   id="clienteInput"
+                   class="form-control form-control-sm"
+                   placeholder="Consumidor Final"
+                   autocomplete="off">
 
-              <input type="hidden" id="idcliente" name="cliente" value="1" required>
+            <input type="hidden" id="idcliente" name="cliente" value="1" required>
 
-              <div id="listaClientes" class="list-group position-absolute w-100"></div>
+            <div id="listaClientes"
+                 class="list-group position-absolute w-100"></div>
 
-              <button class="btn btn-outline-success btn-sm mt-1 w-100"
-                      type="button"
-                      data-bs-toggle="modal"
-                      data-bs-target="#modalCliente">
-                ➕ Nuevo cliente
-              </button>
+            <button class="btn btn-outline-success btn-sm mt-1 w-100"
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalCliente">
+              ➕ Nuevo cliente
+            </button>
           </div>
 
-          <select id="modopago" name="modopago" class="form-select form-select-sm mt-2">
+          <select id="modopago"
+                  name="modopago"
+                  class="form-select form-select-sm mt-2">
             {% for m in modopago %}
             <option value="{{ m.idmodopago }}">{{ m.modo }}</option>
             {% endfor %}
@@ -79,7 +95,8 @@
 
         <!-- TABLA CARRITO -->
         <div class="tabla-carrito">
-          <table class="table table-dark table-sm mb-0 align-middle" id="carritoTable">
+          <table class="table table-dark table-sm mb-0 align-middle"
+                 id="carritoTable">
             <thead>
               <tr>
                 <th>Producto</th>
@@ -91,7 +108,7 @@
               </tr>
             </thead>
             <tbody>
-              <!-- JS inserta filas acá -->
+              <!-- JS inserta filas -->
             </tbody>
           </table>
         </div>
@@ -114,35 +131,55 @@
   </div>
 </div>
 
-<!-- MODAL PARA AGREGAR CLIENTES -->
+<!-- MODAL CLIENTES -->
 <div class="modal fade" id="modalCliente" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <form action="/guardar_ClientesMODAL" method="post">
         <div class="modal-header">
           <h5 class="modal-title">AGREGAR NUEVOS CLIENTES</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"></button>
         </div>
 
         <div class="modal-body">
           <label>Apellido y Nombre</label>
-          <input type="text" name="apenomb" class="form-control mb-2 text-uppercase" required>
+          <input type="text"
+                 name="apenomb"
+                 class="form-control mb-2 text-uppercase"
+                 required>
 
           <label>N° de Documento</label>
-          <input type="number" name="dni" class="form-control mb-2" required>
+          <input type="number"
+                 name="dni"
+                 class="form-control mb-2"
+                 required>
 
           <label>CUIT</label>
-          <input type="text" name="cuil" class="form-control mb-2" required>
+          <input type="text"
+                 name="cuil"
+                 class="form-control mb-2"
+                 required>
 
           <label>Correo Electrónico</label>
-          <input type="email" name="correo" class="form-control mb-2" required>
+          <input type="email"
+                 name="correo"
+                 class="form-control mb-2"
+                 required>
 
           <label>Fecha de Nacimiento</label>
-          <input type="date" name="fecha_nacimiento" class="form-control mb-2" required>
+          <input type="date"
+                 name="fecha_nacimiento"
+                 class="form-control mb-2"
+                 required>
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-primary" type="submit">GUARDAR</button>
+          <button class="btn btn-primary"
+                  type="submit">
+            GUARDAR
+          </button>
         </div>
       </form>
     </div>

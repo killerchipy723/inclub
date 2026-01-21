@@ -20,15 +20,20 @@ def home():
     return render_template("login.html")
 
 
-from flask import render_template, request, redirect, url_for, session
-import pymysql
-from functools import wraps
 
+# VALIDACION DE LOGIN
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
+    # =========================
+    # GET → MOSTRAR LOGIN
+    # =========================
     if request.method == "GET":
         return render_template("login.html")
 
+    # =========================
+    # DATOS FORM
+    # =========================
     nombre = request.form["nombre"]
     clave = request.form["clave"]
     equipo = obtener_mac()
@@ -36,37 +41,55 @@ def login():
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
+    # =========================
     # 1️⃣ VALIDAR USUARIO
+    # =========================
     cursor.execute("""
         SELECT idusuarios, nombre, rol, estado
         FROM usuarios
-        WHERE nombre=%s AND clave=%s
+        WHERE nombre = %s
+          AND clave  = %s
     """, (nombre, clave))
+
     user = cursor.fetchone()
 
     if not user:
         conexion.close()
-        return render_template("login.html", error="Usuario o contraseña incorrectos")
+        return render_template(
+            "login.html",
+            error="Usuario o contraseña incorrectos"
+        )
 
     if user["estado"] != "Activo":
         conexion.close()
-        return render_template("login.html", error="Usuario inactivo")
+        return render_template(
+            "login.html",
+            error="Usuario inactivo"
+        )
 
+    # =========================
     # 🟢 BYPASS ADMINISTRADOR
+    # =========================
     if user["rol"] == "Administrador":
+        session.clear()
         session["id"] = user["idusuarios"]
         session["nombre"] = user["nombre"]
         session["rol"] = user["rol"]
         session["equipo"] = equipo
+
         conexion.close()
         return redirect(url_for("admin"))
 
-    # 2️⃣ VALIDAR PUNTO (NO ADMIN)
+    # =========================
+    # 2️⃣ VALIDAR PUNTO DE VENTA
+    # =========================
     cursor.execute("""
         SELECT idpunto, nombre
         FROM puntos_venta
-        WHERE idequipo=%s AND estado='Activo'
+        WHERE idequipo = %s
+          AND estado  = 'Activo'
     """, (equipo,))
+
     punto = cursor.fetchone()
 
     if not punto:
@@ -76,11 +99,14 @@ def login():
             error="Este equipo no está habilitado como punto de venta"
         )
 
+    # =========================
     # 3️⃣ VALIDAR USUARIO ↔ PUNTO
+    # =========================
     cursor.execute("""
         SELECT 1
         FROM usuarios_puntos
-        WHERE idusuario=%s AND idpunto=%s
+        WHERE idusuario = %s
+          AND idpunto   = %s
         LIMIT 1
     """, (user["idusuarios"], punto["idpunto"]))
 
@@ -91,25 +117,57 @@ def login():
             error="Usuario no autorizado para este punto de venta"
         )
 
+    # =========================
     # 4️⃣ GUARDAR SESIÓN
-    session["id"] = user["idusuarios"]
-    session["nombre"] = user["nombre"]
-    session["rol"] = user["rol"]
+    # =========================
+    session.clear()
+    session["id"]      = user["idusuarios"]
+    session["nombre"]  = user["nombre"]
+    session["rol"]     = user["rol"]
     session["idpunto"] = punto["idpunto"]
-    session["punto"] = punto["nombre"]
-    session["equipo"] = equipo
+    session["punto"]   = punto["nombre"]
+    session["equipo"]  = equipo
+
+    # ⚠️ IMPORTANTE
+    # idjornada debe existir previamente
+    idjornada = session.get("idjornada")
+
+    # =========================
+    # 5️⃣ VALIDAR CAJA ABIERTA
+    # =========================
+    if idjornada:
+        cursor.execute("""
+            SELECT 1
+            FROM cierres_caja
+            WHERE idusuario = %s
+              AND idjornada = %s
+            LIMIT 1
+        """, (user["idusuarios"], idjornada))
+
+        if cursor.fetchone():
+            conexion.close()
+            session.clear()
+            return render_template(
+                "login.html",
+                error="❌ La caja ya fue cerrada. No puede volver a operar."
+            )
 
     conexion.close()
 
-    # 5️⃣ REDIRECCIÓN SEGÚN ROL
+    # =========================
+    # 6️⃣ REDIRECCIÓN SEGÚN ROL
+    # =========================
     if user["rol"] == "Vendedor":
         return redirect(url_for("ventas_home"))
 
     if user["rol"] == "Boleteria":
         return redirect(url_for("boleteria_home"))
 
-    # Seguridad extra
+    # =========================
+    # SEGURIDAD EXTRA
+    # =========================
     return redirect(url_for("login"))
+
 
 
 
@@ -195,7 +253,7 @@ def update_usuario(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    nombre = request.form["nombre"].upper
+    nombre = request.form["nombre"].upper()
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
@@ -211,6 +269,46 @@ def update_usuario(id):
     conexion.close()
 
     return redirect(url_for("home_userReg"))
+
+#Ruta para cerrar caja
+@app.route("/cerrar_caja", methods=["POST"])
+def cerrar_caja():
+
+    if "idcaja" not in session:
+        return jsonify(ok=False, msg="No hay caja activa")
+
+    idcaja = session["idcaja"]
+
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    # 🔴 Verificar si ya está cerrada
+    cursor.execute("""
+        SELECT estado
+        FROM cajas
+        WHERE idcaja=%s
+    """, (idcaja,))
+    caja = cursor.fetchone()
+
+    if not caja or caja["estado"] != "Abierta":
+        conexion.close()
+        return jsonify(ok=False, msg="La caja ya está cerrada")
+
+    # 🟢 Cerrar caja
+    cursor.execute("""
+        UPDATE cajas
+        SET estado='Cerrada',
+            fecha_cierre=NOW()
+        WHERE idcaja=%s
+    """, (idcaja,))
+
+    conexion.commit()
+    conexion.close()
+
+    # ❗ OPCIONAL (pero recomendable)
+    session.pop("idcaja", None)
+
+    return jsonify(ok=True, total=0)
 
 #--------------------------------------BOLETERIA---------------------------------
 @app.route("/boleteria")
@@ -797,6 +895,31 @@ def registrar_venta():
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
 
+    # ===============================
+    # 🔒 VALIDAR CAJA ABIERTA
+    # ===============================
+    conexion = getConnection()
+    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute("""
+        SELECT estado
+        FROM jornadas_puntos
+        WHERE idjornada = %s
+          AND idpunto = %s
+    """, (idjornada, idpunto))
+
+    jp = cursor.fetchone()
+
+    if not jp or jp["estado"] != "Abierto":
+        conexion.close()
+        return jsonify({
+            "success": False,
+            "error": "La caja de este punto de venta está cerrada"
+        }), 403
+
+    # ===============================
+    # CONTINÚA LÓGICA ORIGINAL
+    # ===============================
     total_str = request.form.get("total", "0")
     total_str = total_str.replace(".", "").replace(",", ".")
     total = float(total_str)
@@ -806,7 +929,7 @@ def registrar_venta():
     precios = request.form.getlist("precios[]")
     cortesias = request.form.getlist("cortesias[]")
 
-    conexion = getConnection()
+    # ⚠️ Reutilizamos la misma conexión
     cursor = conexion.cursor()
 
     try:
@@ -875,6 +998,7 @@ def registrar_venta():
         conexion.close()
 
     return jsonify({"success": True, "idventa": idventa})
+
 
 #Ruta para actualizar la recaudacion por caja 
 @app.route("/recaudacion_actual")
