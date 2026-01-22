@@ -2,41 +2,72 @@
 <html>
 <head>
 <meta charset="utf-8">
+<title>Cierre de Caja</title>
+
 <style>
 body {
   width: 80mm;
+  margin: 0;
+  padding: 4px;
   font-family: monospace;
-  font-size: 12px;
+  font-size: 11px;
 }
 hr {
   border: none;
   border-top: 1px dashed #000;
+  margin: 4px 0;
 }
-.text-center { text-align: center; }
+.center { text-align: center; }
+.right { text-align: right; }
+.bold { font-weight: bold; }
 </style>
 </head>
+
 <body onload="window.print()">
 
-<div class="text-center">
+<div class="center bold" style="font-size:14px;">
+  TicketJets
+</div>
+
+<div class="center">
   <strong>CIERRE DE CAJA</strong><br>
   {{ punto }}<br>
   Usuario: {{ usuario }}<br>
-  
+  {{ fecha_impresion }}<br>
 </div>
 
 <hr>
 
-{% for p in pagos %}
-{{ p.modo.ljust(15) }} ${{ "%.2f"|format(p.total) }}<br>
-{% endfor %}
+{% if detalle %}
+  {% for d in detalle %}
+    {{ d.fecha_hora }}<br>
+    {{ d.producto }}<br>
+    Pago: {{ d.pago }}<br>
+    <div class="right">$ {{ "%.2f"|format(d.importe) }}</div>
+    <hr>
+  {% endfor %}
+{% else %}
+  <div class="center">
+    Sin ventas registradas
+  </div>
+  <hr>
+{% endif %}
+
+<div>
+  <strong>TOTALES</strong><br>
+  {% for t in totales_pago %}
+    {{ t.modo.ljust(15) }} ${{ "%.2f"|format(t.total) }}<br>
+  {% endfor %}
+</div>
 
 <hr>
 
-<strong>TOTAL: ${{ "%.2f"|format(total) }}</strong>
+<strong>TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}</strong>
 
 <hr>
 
-<div class="text-center">
+<div class="center">
+  FIN DE CIERRE<br>
   Gracias
 </div>
 

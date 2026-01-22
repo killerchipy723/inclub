@@ -344,29 +344,49 @@ def cerrar_caja():
 # ----------TIKET CAJA---------------
 @app.route("/ticket_cierre_caja")
 def ticket_cierre_caja():
+    now = datetime.now()
+
 
     if "idjornada" not in session or "idpunto" not in session:
         return "No hay caja activa", 403
 
-    idjornada = session["idjornada"]
-    idpunto = session["idpunto"]
+    idjornada = int(session["idjornada"])
+    idpunto = int(session["idpunto"])
 
     conexion = getConnection()
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # 🔹 Usuario (usar lo que ya existe en sesión)
     usuario = session.get("usuario", "OPERADOR")
 
+    # Punto de venta
     cursor.execute("""
         SELECT nombre
         FROM puntos_venta
         WHERE idpunto = %s
     """, (idpunto,))
-
     punto = cursor.fetchone()
     nombre_punto = punto["nombre"] if punto else "PUNTO"
 
-    # Totales por medio de pago
+    # 🔹 DETALLE DE VENTAS (producto por producto)
+    cursor.execute("""
+        SELECT 
+            v.fecha_hora AS fecha,
+            DATE_FORMAT(v.fecha_hora, '%%d/%%m/%%Y %%H:%%i') AS fecha_hora,
+            p.nombre AS producto,
+            mp.modo AS pago,
+            d.subtotal AS importe
+        FROM ventas v
+        JOIN ventas_detalle d ON d.idventa = v.idventa
+        JOIN productos p ON p.idproductos = d.idproductos
+        JOIN modopago mp ON mp.idmodopago = v.idmodopago
+        WHERE v.idjornada = %s
+          AND v.idpunto = %s
+        ORDER BY v.fecha_hora ASC
+    """, (idjornada, idpunto))
+
+    detalle = cursor.fetchall()
+
+    # 🔹 TOTALES POR FORMA DE PAGO
     cursor.execute("""
         SELECT mp.modo,
                SUM(d.subtotal) total
@@ -377,9 +397,9 @@ def ticket_cierre_caja():
         GROUP BY mp.modo
     """, (idjornada, idpunto))
 
-    pagos = cursor.fetchall()
+    totales_pago = cursor.fetchall()
 
-    # Total general
+    # 🔹 TOTAL GENERAL
     cursor.execute("""
         SELECT COALESCE(SUM(d.subtotal),0) total
         FROM ventas v
@@ -387,16 +407,18 @@ def ticket_cierre_caja():
         WHERE v.idjornada = %s AND v.idpunto = %s
     """, (idjornada, idpunto))
 
-    total = cursor.fetchone()["total"]
+    total_general = cursor.fetchone()["total"]
 
     conexion.close()
 
     return render_template(
         "ticket_cierre_caja.html",
-        usuario=usuario,
         punto=nombre_punto,
-        pagos=pagos,
-        total=total
+        usuario=usuario,
+        detalle=detalle,
+        totales_pago=totales_pago,
+        total_general=total_general,
+        fecha_impresion=now
     )
 
 

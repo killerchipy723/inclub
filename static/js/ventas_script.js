@@ -34,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
 
           <td class="text-end">$ ${formatoMoneda(item.precio)}</td>
-
           <td class="text-end">$ ${formatoMoneda(subtotal)}</td>
 
           <td class="text-center">
@@ -72,9 +71,9 @@ document.addEventListener("DOMContentLoaded", () => {
         existente.cantidad++;
       } else {
         carrito.push({
-          id: id,
-          nombre: nombre,
-          precio: precio,
+          id,
+          nombre,
+          precio,
           cantidad: 1,
           cortesia: false
         });
@@ -107,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ================= COBRAR =================
-  document.getElementById("procesarVenta").addEventListener("click", async () => {
+  document.getElementById("procesarVenta")?.addEventListener("click", async () => {
 
     if (carrito.length === 0) {
       alert("Debe agregar al menos un producto");
@@ -141,15 +140,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     imprimirTicket(data.idventa);
+    actualizarRecaudacionCaja();
     resetearVenta();
   });
 
-  // ================= IMPRIMIR =================
+  // ================= IMPRIMIR TICKET VENTA =================
   function imprimirTicket(idventa) {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     iframe.src = `/ticket/${idventa}`;
     document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 2000);
+    };
   }
 
   // ================= RESET VENTA =================
@@ -168,7 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const listaClientes = document.getElementById("listaClientes");
   const idclienteInput = document.getElementById("idcliente");
 
-  clienteInput.addEventListener("input", async () => {
+  clienteInput?.addEventListener("input", async () => {
     const q = clienteInput.value.trim();
     listaClientes.innerHTML = "";
     idclienteInput.value = "1";
@@ -192,54 +201,95 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-});
-
-// ================= CERRAR CAJA (DESDE CABECERA) =================
-const btnCerrarCaja = document.getElementById("cerrarCaja");
-
-if (btnCerrarCaja) {
-  btnCerrarCaja.addEventListener("click", async () => {
-
+  // ================= CERRAR CAJA =================
+  async function cerrarCaja() {
     if (!confirm("¿Confirmar cierre de caja?")) return;
 
     const res = await fetch("/cerrar_caja", { method: "POST" });
     const data = await res.json();
 
-    if (data.ok) {
-      window.open("/ticket_cierre_caja", "_blank");
-      alert("✅ Caja cerrada correctamente\nTotal: $" + data.total);
-      location.reload();
-    } else {
-      alert("❌ " + data.msg);
+    if (!data.ok) {
+      alert(data.msg || "Error al cerrar caja");
+      return;
     }
-  });
-}
 
+    imprimirCierreCaja();
+    verificarEstadoCaja();
+  }
 
-// DESABILITAR EL BOTON COBRAR
-async function verificarEstadoCaja() {
-  try {
-    const res = await fetch("/estado_caja");
-    const data = await res.json();
+  // 👉 CONEXIÓN REAL DEL BOTÓN (INCLUDE)
+  const btnCerrarCaja = document.getElementById("cerrarCaja");
+  if (btnCerrarCaja) {
+    btnCerrarCaja.addEventListener("click", cerrarCaja);
+  }
 
-    const btnCobrar = document.getElementById("procesarVenta");
-    const badge = document.getElementById("estadoCaja");
+  // ================= IMPRIMIR CIERRE CAJA =================
+  function imprimirCierreCaja() {
+    const iframe = document.createElement("iframe");
 
-    if (!btnCobrar || !badge) return;
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "80mm";
+    iframe.style.height = "1px";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
 
-    if (data.estado === "abierto") {
-      btnCobrar.disabled = false;
-      badge.textContent = "Caja Abierta";
-      badge.className = "badge bg-success ms-2";
-    } else {
-      btnCobrar.disabled = true;
-      badge.textContent = "Caja Cerrada";
-      badge.className = "badge bg-danger ms-2";
+    iframe.src = "/ticket_cierre_caja";
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 2000);
+    };
+  }
+
+  // ================= ESTADO CAJA =================
+  async function verificarEstadoCaja() {
+    try {
+      const res = await fetch("/estado_caja");
+      const data = await res.json();
+
+      const btnCobrar = document.getElementById("procesarVenta");
+      const badge = document.getElementById("estadoCaja");
+
+      if (!btnCobrar || !badge) return;
+
+      if (data.estado === "abierto") {
+        btnCobrar.disabled = false;
+        badge.textContent = "Caja Abierta";
+        badge.className = "badge bg-success ms-2";
+      } else {
+        btnCobrar.disabled = true;
+        badge.textContent = "Caja Cerrada";
+        badge.className = "badge bg-danger ms-2";
+      }
+    } catch (e) {
+      console.error("Error verificando estado de caja", e);
     }
-  } catch (e) {
-    console.error("Error verificando estado de caja", e);
+  }
+
+  // 👉 ejecutar al cargar
+  verificarEstadoCaja();
+});
+
+// Actualiza recaudacion por punto de ventas
+async function actualizarRecaudacionCaja() {
+  const res = await fetch("/recaudacion_actual");
+  const data = await res.json();
+
+  const total = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(data.total);
+
+  const div = document.getElementById("recaudacionCaja");
+  if (div) {
+    div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
   }
 }
 
-// Ejecutar al cargar la pantalla
-verificarEstadoCaja();
