@@ -5,41 +5,23 @@
 <title>Cierre de Caja</title>
 
 <style>
-/* =========================
-   IMPRESIÓN EN 80MM TÉRMICA
-========================= */
-@page {
-  size: 80mm auto;
-  margin: 0;
-}
+/* IMPRESIÓN EN 80MM TÉRMICA */
+@page { size: 80mm auto; margin: 0; }
+body { width: 80mm; margin:0; padding:0; font-family: monospace; font-size:12px; line-height:1.1; }
 
-body {
-  width: 80mm;
-  margin: 0;
-  padding: 0;
-  font-family: monospace;
-  font-size: 12px;
-  line-height: 1.1;
-}
-
-.center { text-align: center; }
-.right  { text-align: right; }
-.bold   { font-weight: bold; }
-hr { border: none; border-top: 1px dashed #000; margin:2px 0; }
+.center { text-align:center; }
+.right  { text-align:right; }
+.bold   { font-weight:bold; }
+hr { border:none; border-top:1px dashed #000; margin:2px 0; }
 
 /* Evitar cortes de página */
 @media print {
-  html, body {
-    margin:0; padding:0;
-    width:80mm; 
-    height:auto;
-  }
-  table { page-break-inside: auto; }
-  tr    { page-break-inside: avoid; page-break-after: auto; }
-  td, th { page-break-inside: avoid; page-break-after: auto; }
+  html, body { margin:0; padding:0; width:80mm; height:auto; }
+  table { page-break-inside:auto; }
+  tr    { page-break-inside:avoid; page-break-after:auto; }
+  td, th { page-break-inside:avoid; page-break-after:auto; }
 }
 </style>
-
 </head>
 
 <body>
@@ -55,24 +37,38 @@ hr { border: none; border-top: 1px dashed #000; margin:2px 0; }
 <hr>
 
 <!-- DETALLE VENTAS EN TABLA -->
-<table style="width:100%; border-collapse: collapse; font-size:12px;">
+<table style="width:100%; border-collapse:collapse; font-size:12px;">
   {% if detalle %}
     {% for d in detalle %}
       <tr>
-        <td style="width:45%;">{{ d.fecha_hora }} {{ d.producto }}</td>
-        <td style="width:20%;">{{ d.pago }}</td>
-        <td style="width:35%;" class="right">$ {{ "%.2f"|format(d.importe) }}</td>
+        <td style="width:35%;">{{ d.fecha_hora }}</td>
+        <td style="width:35%;">{{ d.producto }}</td>
+        <td style="width:15%;">{{ d.pago }}</td>
+        <td style="width:15%;" class="right">
+          {% if d.cortesia %}
+            0.00 *
+          {% else %}
+            {{ "%.2f"|format(d.importe) }}
+          {% endif %}
+        </td>
       </tr>
+      {% if d.cortesia and d.autorizado %}
+        <tr>
+          <td colspan="4" class="center" style="font-size:10px;">
+            Cortesía autorizada por: {{ d.autorizado }}
+          </td>
+        </tr>
+      {% endif %}
     {% endfor %}
   {% else %}
-    <tr><td colspan="3" class="center">Sin ventas registradas</td></tr>
+    <tr><td colspan="4" class="center">Sin ventas registradas</td></tr>
   {% endif %}
 </table>
 
 <hr>
 
 <!-- TOTALES POR FORMA DE PAGO -->
-<table style="width:100%; font-size:12px; border-collapse: collapse; margin-bottom:2px;">
+<table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:2px;">
   <tr><td colspan="2" class="bold">TOTALES</td></tr>
   {% for t in totales_pago %}
     <tr>

@@ -415,14 +415,16 @@ def ticket_cierre_caja():
         punto = cursor.fetchone()
         nombre_punto = punto["nombre"] if punto else "PUNTO"
 
-        # 🔹 DETALLE DE VENTAS (producto por producto)
+        # 🔹 DETALLE DE VENTAS (producto por producto) incluyendo cortesías y autorizado
         cursor.execute("""
             SELECT 
                 v.fecha_hora AS fecha,
                 DATE_FORMAT(v.fecha_hora, '%%d/%%m/%%Y %%H:%%i') AS fecha_hora,
                 p.nombre AS producto,
                 mp.modo AS pago,
-                d.subtotal AS importe
+                d.subtotal AS importe,
+                d.cortesia,
+                d.autorizado
             FROM ventas v
             JOIN ventas_detalle d ON d.idventa = v.idventa
             JOIN productos p ON p.idproductos = d.idproductos
@@ -469,6 +471,7 @@ def ticket_cierre_caja():
         )
 
     except Exception as e:
+        print("ERROR TICKET_CIERRE_CAJA:", e)
         return "Error generando ticket de cierre", 500
 
     finally:
@@ -476,7 +479,6 @@ def ticket_cierre_caja():
             cursor.close()
         if conexion:
             conexion.close()
-
 
 
 
@@ -1157,6 +1159,7 @@ def ventas_home():
 
 
 #Registrar Venta
+# Registrar Venta
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
     # ======================
@@ -1170,7 +1173,6 @@ def registrar_venta():
     idjornada = session["idjornada"]
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
-   
 
     conexion = None
     cursor = None
@@ -1206,10 +1208,11 @@ def registrar_venta():
         total_str = total_str.replace(".", "").replace(",", ".")
         total = float(total_str)
 
-        productos  = request.form.getlist("productos[]")
-        cantidades = request.form.getlist("cantidades[]")
-        precios    = request.form.getlist("precios[]")
-        cortesias  = request.form.getlist("cortesias[]")
+        productos   = request.form.getlist("productos[]")
+        cantidades  = request.form.getlist("cantidades[]")
+        precios     = request.form.getlist("precios[]")
+        cortesias   = request.form.getlist("cortesias[]")
+        autorizados = request.form.getlist("autorizados[]")  # <- NUEVO
 
         # ======================
         # 🔁 INSERTAR VENTA
@@ -1246,19 +1249,24 @@ def registrar_venta():
             if i < len(cortesias):
                 es_cortesia = cortesias[i] == "1"
 
+            autorizado = ""
+            if i < len(autorizados):
+                autorizado = autorizados[i]
+
             subtotal = 0 if es_cortesia else cantidad * precio
 
             cursor.execute("""
                 INSERT INTO ventas_detalle
-                (idventa, idproductos, cantidad, precio_unitario, subtotal, cortesia)
-                VALUES (%s,%s,%s,%s,%s,%s)
+                (idventa, idproductos, cantidad, precio_unitario, subtotal, cortesia, autorizado)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
             """, (
                 idventa,
                 idproducto,
                 cantidad,
                 precio,
                 subtotal,
-                es_cortesia
+                es_cortesia,
+                autorizado
             ))
 
             if not es_cortesia:
@@ -1294,6 +1302,7 @@ def registrar_venta():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 

@@ -119,7 +119,7 @@
           </button>
         </div>
 
-        <!-- INPUTS OCULTOS PARA ENVÍO DE CORTESÍAS -->
+        <!-- INPUTS OCULTOS PARA ENVÍO DE CORTESÍAS Y AUTORIZADOS -->
         <div id="inputsOcultos">
           <!-- JS agregará inputs tipo hidden: cortesias[] y autorizados[] -->
         </div>
@@ -194,7 +194,7 @@
 
       <div class="modal-body">
         <label>Nombre de quien autoriza:</label>
-        <input type="text" id="autorizadoInput" class="form-control" placeholder="Ingrese nombre" required>
+        <input type="text" id="autorizadoInput" class="form-control text-uppercase" placeholder="Ingrese nombre" required>
       </div>
 
       <div class="modal-footer">
@@ -204,6 +204,7 @@
   </div>
 </div>
 
+<!-- ================= SCRIPT ================= -->
 <script src="/static/js/ventas_script.js"></script>
 
 {% include '/pie.html' %}

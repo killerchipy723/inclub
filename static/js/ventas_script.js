@@ -15,6 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbody = document.querySelector("#carritoTable tbody");
     tbody.innerHTML = "";
 
+    // Limpiar inputs ocultos de cortesías antes de regenerar
+    const inputsOcultos = document.getElementById("inputsOcultos");
+    inputsOcultos.innerHTML = "";
+
     let total = 0;
 
     carrito.forEach((item, index) => {
@@ -51,6 +55,19 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
         </tr>
       `;
+
+      // Generar inputs ocultos para enviar al backend
+      const inputCortesia = document.createElement("input");
+      inputCortesia.type = "hidden";
+      inputCortesia.name = "cortesias[]";
+      inputCortesia.value = item.cortesia ? "1" : "0";
+      inputsOcultos.appendChild(inputCortesia);
+
+      const inputAutorizado = document.createElement("input");
+      inputAutorizado.type = "hidden";
+      inputAutorizado.name = "autorizados[]";
+      inputAutorizado.value = item.autorizado || "";
+      inputsOcultos.appendChild(inputAutorizado);
     });
 
     document.getElementById("total").textContent = formatoMoneda(total);
@@ -75,7 +92,8 @@ document.addEventListener("DOMContentLoaded", () => {
           nombre,
           precio,
           cantidad: 1,
-          cortesia: false
+          cortesia: false,
+          autorizado: ""
         });
       }
 
@@ -93,7 +111,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (e.target.classList.contains("cortesia")) {
       carrito[index].cortesia = e.target.checked;
+
+      if (e.target.checked) {
+        // Abrir modal de autorización
+        const modal = new bootstrap.Modal(document.getElementById("modalCortesia"));
+        modal.show();
+
+        // Guardar index actual en dataset para saber cuál fila se autoriza
+        const guardarBtn = document.getElementById("guardarAutorizacion");
+        guardarBtn.dataset.index = index;
+      } else {
+        carrito[index].autorizado = ""; // borrar nombre si se desmarca
+        actualizarCarrito();
+      }
     }
+  });
+
+  // ================= GUARDAR AUTORIZACION =================
+  document.getElementById("guardarAutorizacion").addEventListener("click", () => {
+    const index = parseInt(document.getElementById("guardarAutorizacion").dataset.index);
+    const nombre = document.getElementById("autorizadoInput").value.trim();
+
+    if (!nombre) {
+      alert("Ingrese nombre de quien autoriza la cortesía");
+      return;
+    }
+
+    carrito[index].autorizado = nombre;
+
+    // Limpiar modal
+    document.getElementById("autorizadoInput").value = "";
+    const modal = bootstrap.Modal.getInstance(document.getElementById("modalCortesia"));
+    modal.hide();
 
     actualizarCarrito();
   });
@@ -107,7 +156,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ================= COBRAR =================
   document.getElementById("procesarVenta")?.addEventListener("click", async () => {
-
     if (carrito.length === 0) {
       alert("Debe agregar al menos un producto");
       return;
@@ -125,6 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
       formData.append("cantidades[]", p.cantidad);
       formData.append("precios[]", p.precio);
       formData.append("cortesias[]", p.cortesia ? "1" : "0");
+      formData.append("autorizados[]", (p.autorizado || "").toUpperCase());
     });
 
     const res = await fetch("/registrar_venta", {
@@ -217,7 +266,6 @@ document.addEventListener("DOMContentLoaded", () => {
     verificarEstadoCaja();
   }
 
-  // 👉 CONEXIÓN REAL DEL BOTÓN (INCLUDE)
   const btnCerrarCaja = document.getElementById("cerrarCaja");
   if (btnCerrarCaja) {
     btnCerrarCaja.addEventListener("click", cerrarCaja);
@@ -225,34 +273,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ================= IMPRIMIR CIERRE CAJA =================
   function imprimirCierreCaja() {
-  const iframe = document.createElement("iframe");
+    const iframe = document.createElement("iframe");
 
-  // Hacemos que sea invisible pero renderizable
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "80mm";
-  iframe.style.height = "1px";  // solo lo suficiente para renderizar
-  iframe.style.border = "0";
-  iframe.style.opacity = "0";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "80mm";
+    iframe.style.height = "1px";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
 
-  iframe.src = "/ticket_cierre_caja";
-  document.body.appendChild(iframe);
+    iframe.src = "/ticket_cierre_caja";
+    document.body.appendChild(iframe);
 
-  iframe.onload = () => {
-    // Forzar enfoque antes de imprimir
-    iframe.contentWindow.focus();
-
-    // Ejecutamos impresión
-    iframe.contentWindow.print();
-
-    // Retiramos el iframe tras un tiempo
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 1000);
-  };
-}
-
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+  }
 
   // ================= ESTADO CAJA =================
   async function verificarEstadoCaja() {
@@ -279,11 +320,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 👉 ejecutar al cargar
+  // Ejecutar al cargar
   verificarEstadoCaja();
 });
 
-// Actualiza recaudacion por punto de ventas
+// ================= ACTUALIZAR RECAUDACION =================
 async function actualizarRecaudacionCaja() {
   const res = await fetch("/recaudacion_actual");
   const data = await res.json();
@@ -298,4 +339,3 @@ async function actualizarRecaudacionCaja() {
     div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
   }
 }
-
