@@ -6,72 +6,37 @@
 
 <style>
 /* =========================
-   ESTILOS BASE PARA IMPRESORA 80mm
+   IMPRESIÓN EN 80MM TÉRMICA
 ========================= */
 @page {
-  size: 80mm auto;   /* ancho fijo, largo automático */
+  size: 80mm auto;
   margin: 0;
 }
 
 body {
   width: 80mm;
   margin: 0;
-  padding: 1mm; 
+  padding: 0;
   font-family: monospace;
   font-size: 12px;
-  line-height: 1.15;
-}
-
-hr, .hr-detalle {
-  border: none;
-  border-top: 1px dashed #000;
-  margin: 2px 0;
+  line-height: 1.1;
 }
 
 .center { text-align: center; }
 .right  { text-align: right; }
 .bold   { font-weight: bold; }
+hr { border: none; border-top: 1px dashed #000; margin:2px 0; }
 
-/* Detalle de ventas */
-.detalle {
-  font-size: 12px; 
-  margin: 0;
-  padding: 0;
-}
-
-/* Totales y total general */
-.totales, .total-general {
-  font-size: 12px;
-  margin: 0;
-  padding: 0;
-}
-
-.total-general {
-  font-weight: bold;
-  font-size: 13px;
-}
-
-/* =========================
-   IMPRESIÓN CONTINUA
-========================= */
+/* Evitar cortes de página */
 @media print {
   html, body {
-    margin: 0;
-    padding: 0;
-    width: 80mm;
+    margin:0; padding:0;
+    width:80mm; 
+    height:auto;
   }
-
-  /* Evita cortes internos en cualquier elemento */
-  * {
-    page-break-inside: avoid !important;
-    page-break-before: auto !important;
-    page-break-after: auto !important;
-  }
-
-  body {
-    display: block;
-    height: auto;
-  }
+  table { page-break-inside: auto; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+  td, th { page-break-inside: avoid; page-break-after: auto; }
 }
 </style>
 
@@ -79,69 +44,54 @@ hr, .hr-detalle {
 
 <body>
 
-<!-- =========================
-     CABECERA
-========================= -->
-<div class="center bold" style="font-size:16px; margin-bottom:2px;">
-  TicketJets
-</div>
-
+<!-- CABECERA -->
+<div class="center bold" style="font-size:16px; margin-bottom:2px;">TicketJets</div>
 <div class="center" style="margin-bottom:2px; font-size:14px;">
   <strong>CIERRE DE CAJA</strong><br>
   {{ punto }}<br>
   Usuario: {{ usuario }}<br>
   {{ fecha_impresion.strftime('%d/%m/%Y %H:%M') }}<br>
 </div>
+<hr>
 
-<div class="hr-detalle"></div>
+<!-- DETALLE VENTAS EN TABLA -->
+<table style="width:100%; border-collapse: collapse; font-size:12px;">
+  {% if detalle %}
+    {% for d in detalle %}
+      <tr>
+        <td style="width:45%;">{{ d.fecha_hora }} {{ d.producto }}</td>
+        <td style="width:20%;">{{ d.pago }}</td>
+        <td style="width:35%;" class="right">$ {{ "%.2f"|format(d.importe) }}</td>
+      </tr>
+    {% endfor %}
+  {% else %}
+    <tr><td colspan="3" class="center">Sin ventas registradas</td></tr>
+  {% endif %}
+</table>
 
-<!-- =========================
-     DETALLE DE VENTAS
-========================= -->
-{% if detalle %}
-  {% for d in detalle %}
-    <div class="detalle">
-      <span>{{ d.fecha_hora }}</span><br>
-      <span>{{ d.producto }}</span><br>
-      <span>Pago: {{ d.pago }}</span>
-      <div class="right">$ {{ "%.2f"|format(d.importe) }}</div>
-    </div>
-    {% if not loop.last %}
-      <div class="hr-detalle"></div>
-    {% endif %}
-  {% endfor %}
-{% else %}
-  <div class="center">
-    Sin ventas registradas
-  </div>
-{% endif %}
+<hr>
 
-<div class="hr-detalle"></div>
-
-<!-- =========================
-     TOTALES POR FORMA DE PAGO
-========================= -->
-<div class="totales" style="margin-top:2px; margin-bottom:2px;">
-  <strong>TOTALES</strong><br>
+<!-- TOTALES POR FORMA DE PAGO -->
+<table style="width:100%; font-size:12px; border-collapse: collapse; margin-bottom:2px;">
+  <tr><td colspan="2" class="bold">TOTALES</td></tr>
   {% for t in totales_pago %}
-    {{ t.modo.ljust(15) }} ${{ "%.2f"|format(t.total) }}<br>
+    <tr>
+      <td>{{ t.modo }}</td>
+      <td class="right">$ {{ "%.2f"|format(t.total) }}</td>
+    </tr>
   {% endfor %}
-</div>
+</table>
 
-<div class="hr-detalle"></div>
+<hr>
 
-<!-- =========================
-     TOTAL GENERAL
-========================= -->
-<div class="total-general" style="margin-bottom:2px;">
+<!-- TOTAL GENERAL -->
+<div class="total-general bold" style="margin-bottom:2px; font-size:13px;">
   TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}
 </div>
 
-<div class="hr-detalle"></div>
+<hr>
 
-<!-- =========================
-     PIE DE TICKET
-========================= -->
+<!-- PIE DE TICKET -->
 <div class="center" style="margin-top:2px; font-size:14px;">
   FIN DE CIERRE<br>
   Gracias
