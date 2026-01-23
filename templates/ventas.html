@@ -119,6 +119,11 @@
           </button>
         </div>
 
+        <!-- INPUTS OCULTOS PARA ENVÍO DE CORTESÍAS -->
+        <div id="inputsOcultos">
+          <!-- JS agregará inputs tipo hidden: cortesias[] y autorizados[] -->
+        </div>
+
       </form>
     </aside>
   </div>
@@ -174,6 +179,27 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL AUTORIZACION CORTESIA ================= -->
+<div class="modal fade" id="modalCortesia" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Autorización de Cortesía</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <label>Nombre de quien autoriza:</label>
+        <input type="text" id="autorizadoInput" class="form-control" placeholder="Ingrese nombre" required>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="guardarAutorizacion" class="btn btn-primary">Guardar</button>
+      </div>
     </div>
   </div>
 </div>

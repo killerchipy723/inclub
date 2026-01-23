@@ -5,68 +5,144 @@
 <title>Cierre de Caja</title>
 
 <style>
+/* =========================
+   ESTILOS BASE PARA IMPRESORA 80mm
+========================= */
+@page {
+  size: 80mm auto;   /* ancho fijo, largo automático */
+  margin: 0;
+}
+
 body {
   width: 80mm;
   margin: 0;
-  padding: 4px;
+  padding: 1mm; 
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.15;
 }
-hr {
+
+hr, .hr-detalle {
   border: none;
   border-top: 1px dashed #000;
-  margin: 4px 0;
+  margin: 2px 0;
 }
+
 .center { text-align: center; }
-.right { text-align: right; }
-.bold { font-weight: bold; }
+.right  { text-align: right; }
+.bold   { font-weight: bold; }
+
+/* Detalle de ventas */
+.detalle {
+  font-size: 12px; 
+  margin: 0;
+  padding: 0;
+}
+
+/* Totales y total general */
+.totales, .total-general {
+  font-size: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.total-general {
+  font-weight: bold;
+  font-size: 13px;
+}
+
+/* =========================
+   IMPRESIÓN CONTINUA
+========================= */
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 80mm;
+  }
+
+  /* Evita cortes internos en cualquier elemento */
+  * {
+    page-break-inside: avoid !important;
+    page-break-before: auto !important;
+    page-break-after: auto !important;
+  }
+
+  body {
+    display: block;
+    height: auto;
+  }
+}
 </style>
+
 </head>
 
-<body onload="window.print()">
+<body>
 
-<div class="center bold" style="font-size:14px;">
+<!-- =========================
+     CABECERA
+========================= -->
+<div class="center bold" style="font-size:16px; margin-bottom:2px;">
   TicketJets
 </div>
 
-<div class="center">
+<div class="center" style="margin-bottom:2px; font-size:14px;">
   <strong>CIERRE DE CAJA</strong><br>
   {{ punto }}<br>
   Usuario: {{ usuario }}<br>
-  {{ fecha_impresion }}<br>
+  {{ fecha_impresion.strftime('%d/%m/%Y %H:%M') }}<br>
 </div>
 
-<hr>
+<div class="hr-detalle"></div>
 
+<!-- =========================
+     DETALLE DE VENTAS
+========================= -->
 {% if detalle %}
   {% for d in detalle %}
-    {{ d.fecha_hora }}<br>
-    {{ d.producto }}<br>
-    Pago: {{ d.pago }}<br>
-    <div class="right">$ {{ "%.2f"|format(d.importe) }}</div>
-    <hr>
+    <div class="detalle">
+      <span>{{ d.fecha_hora }}</span><br>
+      <span>{{ d.producto }}</span><br>
+      <span>Pago: {{ d.pago }}</span>
+      <div class="right">$ {{ "%.2f"|format(d.importe) }}</div>
+    </div>
+    {% if not loop.last %}
+      <div class="hr-detalle"></div>
+    {% endif %}
   {% endfor %}
 {% else %}
   <div class="center">
     Sin ventas registradas
   </div>
-  <hr>
 {% endif %}
 
-<div>
+<div class="hr-detalle"></div>
+
+<!-- =========================
+     TOTALES POR FORMA DE PAGO
+========================= -->
+<div class="totales" style="margin-top:2px; margin-bottom:2px;">
   <strong>TOTALES</strong><br>
   {% for t in totales_pago %}
     {{ t.modo.ljust(15) }} ${{ "%.2f"|format(t.total) }}<br>
   {% endfor %}
 </div>
 
-<hr>
+<div class="hr-detalle"></div>
 
-<strong>TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}</strong>
+<!-- =========================
+     TOTAL GENERAL
+========================= -->
+<div class="total-general" style="margin-bottom:2px;">
+  TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}
+</div>
 
-<hr>
+<div class="hr-detalle"></div>
 
-<div class="center">
+<!-- =========================
+     PIE DE TICKET
+========================= -->
+<div class="center" style="margin-top:2px; font-size:14px;">
   FIN DE CIERRE<br>
   Gracias
 </div>

@@ -225,28 +225,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ================= IMPRIMIR CIERRE CAJA =================
   function imprimirCierreCaja() {
-    const iframe = document.createElement("iframe");
+  const iframe = document.createElement("iframe");
 
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "80mm";
-    iframe.style.height = "1px";
-    iframe.style.border = "0";
-    iframe.style.opacity = "0";
+  // Hacemos que sea invisible pero renderizable
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "80mm";
+  iframe.style.height = "1px";  // solo lo suficiente para renderizar
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
 
-    iframe.src = "/ticket_cierre_caja";
-    document.body.appendChild(iframe);
+  iframe.src = "/ticket_cierre_caja";
+  document.body.appendChild(iframe);
 
-    iframe.onload = () => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
+  iframe.onload = () => {
+    // Forzar enfoque antes de imprimir
+    iframe.contentWindow.focus();
 
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 2000);
-    };
-  }
+    // Ejecutamos impresión
+    iframe.contentWindow.print();
+
+    // Retiramos el iframe tras un tiempo
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  };
+}
+
 
   // ================= ESTADO CAJA =================
   async function verificarEstadoCaja() {

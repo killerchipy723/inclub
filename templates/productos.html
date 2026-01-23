@@ -9,7 +9,7 @@
         <div class="row mb-3">
           <div class="col">
             <label>Nombre del producto</label>
-            <input type="text" name="nombre" class="form-control text-uppercase" required>
+            <input type="text" name="nombre" id="filterProducto" class="form-control text-uppercase" required>
           </div>
 
           <div class="col">
@@ -18,13 +18,18 @@
           </div>
 
           <div class="col">
+            <label>Stock</label>
+            <input type="number" name="stock" class="form-control" value="0" min="0" required>
+          </div>
+
+          <div class="col">
             <label>Estado</label>
-           <select name="estado" id="" required class="form-control text-uppercase">
-                <option disabled selected value="" >---Seleccione el estado--- </option>
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-           </select>
-          </div>          
+            <select name="estado" required class="form-control text-uppercase">
+              <option disabled selected value="">---Seleccione el estado---</option>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>
 
           <div class="col d-flex align-items-end">
             <button class="btn btn-primary w-100" type="submit">Registrar</button>
@@ -39,7 +44,8 @@
             <th>ID</th>
             <th>Producto</th>
             <th>Importe</th>
-            <th>Estado</th>            
+            <th>Stock</th>
+            <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -49,7 +55,8 @@
             <td>{{ alu.idproductos }}</td>
             <td>{{ alu.nombre }}</td>
             <td>${{ alu.importe }}</td>
-            <td>{{ alu.estado }}</td>            
+            <td>{{ alu.stock }}</td>
+            <td>{{ alu.estado }}</td>
             <td>
               <button class="btn btn-warning btn-sm"
                       data-bs-toggle="modal"
@@ -94,14 +101,16 @@
           <input type="number" name="importe" class="form-control mb-2"
                  value="{{ alu.importe }}" required>
 
+          <label>Stock</label>
+          <input type="number" name="stock" class="form-control mb-2"
+                 value="{{ alu.stock }}" min="0" required>
+
           <label>Estado</label>
-          <select name="estado"  class="form-control mb-2" id="">
-            <option value="{{ alu.estado }}"  >{{ alu.estado }}</option>
+          <select name="estado" class="form-control mb-2">
+            <option value="{{ alu.estado }}">{{ alu.estado }}</option>
             <option value="Inactivo">Inactivo</option>
             <option value="Activo">Activo</option>
           </select>
-          
-          
         </div>
 
         <div class="modal-footer">
@@ -162,3 +171,4 @@ document.addEventListener('DOMContentLoaded', () => {
 {% endif %}
 
 {% include '/pie.html' %}
+<script src="/static/js/productos.js"></script>

@@ -137,11 +137,6 @@ def login():
         cursor.close()
         conexion.close()
 
-
-
-
-
-
 # =======================
 # LOGOUT
 # =======================
@@ -306,6 +301,51 @@ def update_usuario(id):
             conexion.close()
 
     return redirect(url_for("home_userReg"))
+
+# Cerrar caja
+
+# ======================
+# CERRAR CAJA (POST)
+# ======================
+@app.route("/cerrar_caja", methods=["POST"])
+def cerrar_caja():
+    # Verificamos que haya una caja activa en sesión
+    if "idjornada" not in session or "idpunto" not in session:
+        return {"ok": False, "msg": "No hay caja activa"}, 403
+
+    idjornada = int(session["idjornada"])
+    idpunto = int(session["idpunto"])
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        # Actualizamos el estado de la caja a "Cerrado" en la tabla jornadas_puntos
+        cursor.execute("""
+            UPDATE jornadas_puntos
+            SET estado = 'Cerrado'
+            WHERE idjornada = %s AND idpunto = %s
+        """, (idjornada, idpunto))
+
+        conexion.commit()
+
+        # Retornamos JSON para que tu JS sepa que salió todo OK
+        return {"ok": True}
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al cerrar caja:", e)
+        return {"ok": False, "msg": "Error al cerrar caja"}, 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 #Estado de Cajas
@@ -869,7 +909,7 @@ def reporte_boleteria_detallado():
 
 #################################################### hasta aca esta falta la siguiente ruta blindar 
 
-#--------------------------------------Usuarios Puntos---------------------------
+#---------------------------------------------------Usuarios Puntos--------------------------------------
 
 # ==============================
 # RUTA PRINCIPAL ASIGNACIONES
@@ -1012,7 +1052,7 @@ def delete_usuario_punto(id):
 
 
 
-#--------------------------------------Ventas-------------------------------------
+#----------------------------------------------------------Ventas-------------------------------------
 
 @app.route("/ventas", methods=["GET"])
 def ventas_home():
@@ -1116,9 +1156,12 @@ def ventas_home():
 
 
 
-#------------------------------------REGISTRAR VENTA-----------------------------
+#Registrar Venta
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
+    # ======================
+    # 🔒 VERIFICAR SESIÓN
+    # ======================
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -1127,17 +1170,21 @@ def registrar_venta():
     idjornada = session["idjornada"]
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
+   
 
     conexion = None
     cursor = None
 
     try:
+        # ======================
+        # 🔗 CONEXIÓN A BD
+        # ======================
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ===============================
+        # ======================
         # 🔒 VALIDAR CAJA ABIERTA
-        # ===============================
+        # ======================
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
@@ -1146,16 +1193,15 @@ def registrar_venta():
         """, (idjornada, idpunto))
 
         jp = cursor.fetchone()
-
         if not jp or jp["estado"] != "Abierto":
             return jsonify({
                 "success": False,
                 "error": "La caja de este punto de venta está cerrada"
             }), 403
 
-        # ===============================
-        # CONTINÚA LÓGICA ORIGINAL
-        # ===============================
+        # ======================
+        # 🔢 OBTENER DATOS DEL FORM
+        # ======================
         total_str = request.form.get("total", "0")
         total_str = total_str.replace(".", "").replace(",", ".")
         total = float(total_str)
@@ -1165,11 +1211,10 @@ def registrar_venta():
         precios    = request.form.getlist("precios[]")
         cortesias  = request.form.getlist("cortesias[]")
 
-        # 🔁 reutilizamos la MISMA conexión
-        cursor = conexion.cursor()
-
+        # ======================
+        # 🔁 INSERTAR VENTA
+        # ======================
         qr_token = uuid.uuid4().hex
-
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
@@ -1189,6 +1234,9 @@ def registrar_venta():
         idventa = cursor.lastrowid
         total_puntos = 0
 
+        # ======================
+        # 🔁 INSERTAR DETALLE DE VENTA
+        # ======================
         for i in range(len(productos)):
             idproducto = productos[i]
             cantidad = int(cantidades[i])
@@ -1216,14 +1264,23 @@ def registrar_venta():
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
+        # ======================
+        # 🔄 ACTUALIZAR PUNTOS
+        # ======================
         cursor.execute("""
             UPDATE ventas
             SET puntos_ganados = %s
             WHERE idventa = %s
         """, (total_puntos, idventa))
 
+        # ======================
+        # 💾 COMMIT
+        # ======================
         conexion.commit()
 
+        # ======================
+        # ✅ RESPUESTA EXITOSA
+        # ======================
         return jsonify({"success": True, "idventa": idventa})
 
     except Exception as e:
@@ -1237,6 +1294,7 @@ def registrar_venta():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 #Ruta para actualizar la recaudacion por caja 
@@ -1325,7 +1383,7 @@ def finalizar_jornada():
             conexion.close()
 
 
-#--------------------------------------Clientes----------------------------------------------------------------
+#---------------------------------------------Clientes----------------------------------------------------------------
 
 # Ruta principal clientes
 @app.route("/clientes", methods=['GET'])
@@ -1589,7 +1647,7 @@ def guardar_ClientesMOD():
             conexion.close()
 
 
-# ------------------------------Jornadas----------------------------------
+# ----------------------------------------------------Jornadas--------------------------------------------------------
 
 # =====================================================
 # LISTADO GENERAL DE JORNADAS
@@ -1986,10 +2044,10 @@ def agregar_punto_jornada(idjornada, idpunto):
 
     return redirect(f"/Jornadas_Admin/{idjornada}")
 
+# =====================================================
+# AGREGAR PRODUCTO A JORNADA
+# =====================================================
 
-
-#-----------------------------Productos----------------------------------
-#Ruta Principal de productos
 @app.route("/agregar_producto_jornada/<int:idjornada>/<int:idproducto>")
 def agregar_producto_jornada(idjornada, idproducto):
     if "id" not in session:
@@ -2022,25 +2080,74 @@ def agregar_producto_jornada(idjornada, idproducto):
 
     return redirect(f"/Jornadas_Admin/{idjornada}")
 
+#-----------------------------Productos----------------------------------
+#Ruta Principal de productos
 
-#Ruta para guardar Productos
+# ======================
+# RUTA: Productos
+# ======================
+# ======================
+# RUTA: Listado de Productos
+# ======================
+@app.route("/Productos")
+def home_Productos():
+    if "id" not in session:
+        return redirect(url_for("home"))
 
-@app.route("/guardar_Productos", methods=['POST'])
-def save_Productos():
     conexion = None
     cursor = None
 
     try:
         conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        query = 'SELECT * FROM productos'
+        cursor.execute(query)
+        data = cursor.fetchall()
+
+        message = request.args.get('message')
+
+        return render_template(
+            'productos.html',
+            message=message,
+            productos=data,
+            rol=session['rol'],
+            usuario=session['nombre']
+        )
+
+    except Exception as e:
+        print("❌ Error en home_Productos:", e)
+        return "Error interno al cargar productos", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+
+# ======================
+# RUTA: Guardar Productos
+# ======================
+@app.route("/guardar_Productos", methods=['POST'])
+def save_Productos():
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
         nombre = request.form['nombre'].upper()
         importe = request.form['importe']
+        stock = request.form.get('stock', 0)  # si no viene, default 0
         estado = request.form['estado']
 
-        query = 'INSERT INTO productos (nombre, importe, estado) VALUES (%s, %s, %s)'
-
-        cursor = conexion.cursor()
-        cursor.execute(query, (nombre, importe, estado))
+        query = 'INSERT INTO productos (nombre, importe, stock, estado) VALUES (%s, %s, %s, %s)'
+        cursor.execute(query, (nombre, importe, stock, estado))
         conexion.commit()
 
     except Exception as e:
@@ -2062,29 +2169,35 @@ def save_Productos():
     )
 
 
-#Ruta para modificar productos
+# ======================
+# RUTA: Modificar Productos
+# ======================
 @app.route("/Update_Productos/<int:id>", methods=['POST'])
 def update_Productos(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
     conexion = None
     cursor = None
 
     try:
         conexion = getConnection()
+        cursor = conexion.cursor()
 
         nombre = request.form['nombre'].upper()
         importe = request.form['importe']
+        stock = request.form.get('stock', 0)  # si no viene, default 0
         estado = request.form['estado']
 
         query = """
             UPDATE productos
             SET nombre = %s,
                 importe = %s,
+                stock = %s,
                 estado = %s
             WHERE idproductos = %s
         """
-
-        cursor = conexion.cursor()
-        cursor.execute(query, (nombre, importe, estado, id))
+        cursor.execute(query, (nombre, importe, stock, estado, id))
         conexion.commit()
 
     except Exception as e:
@@ -2106,7 +2219,9 @@ def update_Productos(id):
     )
 
 
-#Ruta para eliminar productos
+# ======================
+# RUTA: Eliminar Productos
+# ======================
 @app.route("/delete_Productos/<int:id>")
 def delete_producto(id):
     if "id" not in session:
@@ -2138,10 +2253,11 @@ def delete_producto(id):
 
     return redirect(
         url_for(
-            "home_Jornadas",
+            "home_Productos",
             message='Producto eliminado correctamente'
         )
     )
+
 
 
 #------------------------------Punto de venta-----------------------------
@@ -2511,6 +2627,7 @@ def ticket(idventa):
 
     conexion = None
     cursor = None
+    fecha_impresion = datetime.now()
 
     try:
         # ======================
@@ -2545,7 +2662,9 @@ def ticket(idventa):
         cursor.execute("""
             SELECT p.nombre AS producto,
                    d.cantidad,
-                   d.subtotal
+                   d.precio_unitario AS importe,
+                   d.subtotal,
+                   d.cortesia
             FROM ventas_detalle d
             JOIN productos p ON p.idproductos = d.idproductos
             WHERE d.idventa = %s
@@ -2574,7 +2693,6 @@ def ticket(idventa):
     )
 
     qr = qrcode.make(qr_texto)
-
     buffer = BytesIO()
     qr.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -2590,9 +2708,12 @@ def ticket(idventa):
         cliente=venta["cliente"],
         detalle=detalle,
         subtotal=venta["total"],
+        total_general=venta["total"],
         total=venta["total"],
-        qr_base64=qr_base64
+        qr_base64=qr_base64,
+        fecha_impresion=fecha_impresion
     )
+
 
 # Ruta para ver el ticket de Venta
 
@@ -3160,4 +3281,4 @@ def delete_sector_entrada(id):
 
 #-------------------------------Arranque-----------------------------------
 if __name__=='__main__':    
-    app.run(host="0.0.0.0", port=6900)
+    app.run(host="0.0.0.0", port=6900,debug=True)  
