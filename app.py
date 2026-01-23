@@ -6,8 +6,7 @@ import pymysql
 import qrcode
 import base64
 from io import BytesIO
-from waitress import serve
-from pymysql import pooling
+
 
 
 app = Flask(__name__)
@@ -1956,8 +1955,7 @@ def agregar_punto_jornada(idjornada, idpunto):
 # =====================================================
 # AGREGAR PRODUCTO A JORNADA
 # =====================================================
-@app.route("/agregar_producto_jornada/<int:idjornada>/<int:idproducto>")
-def agregar_producto_jornada(idjornada, idproducto):
+
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -3000,100 +2998,166 @@ def reporte_cajas():
 # SECTORES ENTRADAS
 # ===============================
 ###################################### esta hasta aca sigue la linea de abajo
+# ======================
+# RUTA: Sectores Entradas
+# ======================
 @app.route("/sectores_entradas")
 def home_sectores_entradas():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT s.*, j.nombre AS jornada
-        FROM sectores_entradas s
-        INNER JOIN jornadas j ON j.idjornada = s.idjornada
-    """)
-    sectores = cursor.fetchall()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    cursor.execute("SELECT idjornada, nombre FROM jornadas order by idjornada DESC")
-    jornadas = cursor.fetchall()
+        cursor.execute("""
+            SELECT s.*, j.nombre AS jornada
+            FROM sectores_entradas s
+            INNER JOIN jornadas j ON j.idjornada = s.idjornada
+        """)
+        sectores = cursor.fetchall()
 
-    conexion.close()
+        cursor.execute("SELECT idjornada, nombre FROM jornadas order by idjornada DESC")
+        jornadas = cursor.fetchall()
 
-    return render_template(
-        "sectores_entradas.html",
-        sectores=sectores,
-        jornadas=jornadas,
-        message=request.args.get("message"),
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "sectores_entradas.html",
+            sectores=sectores,
+            jornadas=jornadas,
+            message=request.args.get("message"),
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("❌ Error en home_sectores_entradas:", e)
+        return "Error interno al cargar los sectores", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+
+# ======================
+# RUTA: Guardar Sector Entrada
+# ======================
 @app.route("/guardar_sector_entrada", methods=["POST"])
 def guardar_sector_entrada():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    idjornada = request.form["idjornada"]
-    nombre = request.form["nombre"].upper()
-    precio = request.form["precio"]
-    estado = request.form["estado"]
+    conexion = None
+    cursor = None
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("""
-        INSERT INTO sectores_entradas (idjornada, nombre, precio, estado)
-        VALUES (%s, %s, %s, %s)
-    """, (idjornada, nombre, precio, estado))
+    try:
+        idjornada = request.form["idjornada"]
+        nombre = request.form["nombre"].upper()
+        precio = request.form["precio"]
+        estado = request.form["estado"]
 
-    conexion.commit()
-    conexion.close()
+        conexion = getConnection()
+        cursor = conexion.cursor()
+        cursor.execute("""
+            INSERT INTO sectores_entradas (idjornada, nombre, precio, estado)
+            VALUES (%s, %s, %s, %s)
+        """, (idjornada, nombre, precio, estado))
 
-    return redirect(url_for("home_sectores_entradas",
-                            message="Sector registrado correctamente"))
+        conexion.commit()
+
+        return redirect(url_for("home_sectores_entradas",
+                                message="Sector registrado correctamente"))
+
+    except Exception as e:
+        print("❌ Error en guardar_sector_entrada:", e)
+        return "Error interno al guardar el sector", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
+# ======================
+# RUTA: Actualizar Sector Entrada
+# ======================
 @app.route("/update_sector_entrada/<int:id>", methods=["POST"])
 def update_sector_entrada(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    idjornada = request.form["idjornada"]
-    nombre = request.form["nombre"].upper()
-    precio = request.form["precio"]
-    estado = request.form["estado"]
+    conexion = None
+    cursor = None
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("""
-        UPDATE sectores_entradas
-        SET idjornada=%s, nombre=%s, precio=%s, estado=%s
-        WHERE idsector=%s
-    """, (idjornada, nombre, precio, estado, id))
+    try:
+        idjornada = request.form["idjornada"]
+        nombre = request.form["nombre"].upper()
+        precio = request.form["precio"]
+        estado = request.form["estado"]
 
-    conexion.commit()
-    conexion.close()
+        conexion = getConnection()
+        cursor = conexion.cursor()
+        cursor.execute("""
+            UPDATE sectores_entradas
+            SET idjornada=%s, nombre=%s, precio=%s, estado=%s
+            WHERE idsector=%s
+        """, (idjornada, nombre, precio, estado, id))
 
-    return redirect(url_for("home_sectores_entradas",
-                            message="Sector actualizado correctamente"))
+        conexion.commit()
+
+        return redirect(url_for("home_sectores_entradas",
+                                message="Sector actualizado correctamente"))
+
+    except Exception as e:
+        print("❌ Error en update_sector_entrada:", e)
+        return "Error interno al actualizar el sector", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
+# ======================
+# RUTA: Eliminar Sector Entrada
+# ======================
 @app.route("/delete_sector_entrada/<int:id>")
 def delete_sector_entrada(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("DELETE FROM sectores_entradas WHERE idsector=%s", (id,))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for("home_sectores_entradas",
-                            message="Sector eliminado correctamente"))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+        cursor.execute("DELETE FROM sectores_entradas WHERE idsector=%s", (id,))
+        conexion.commit()
+
+        return redirect(url_for("home_sectores_entradas",
+                                message="Sector eliminado correctamente"))
+
+    except Exception as e:
+        print("❌ Error en delete_sector_entrada:", e)
+        return "Error interno al eliminar el sector", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 
 
 #-------------------------------Arranque-----------------------------------
 if __name__=='__main__':    
-    serve(app, host="0.0.0.0", port=6900)
+    app.run(host="0.0.0.0", port=6900)
