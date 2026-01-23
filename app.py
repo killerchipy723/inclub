@@ -881,42 +881,55 @@ def usuarios_puntos():
     if "id" not in session or session["rol"] != "Administrador":
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    # Usuarios
-    cursor.execute("SELECT idusuarios, nombre FROM usuarios WHERE estado='Activo'")
-    usuarios = cursor.fetchall()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # Puntos de venta
-    cursor.execute("SELECT idpunto, nombre, idequipo FROM puntos_venta WHERE estado='Activo'")
-    puntos = cursor.fetchall()
+        # Usuarios
+        cursor.execute("SELECT idusuarios, nombre FROM usuarios WHERE estado='Activo'")
+        usuarios = cursor.fetchall()
 
-    # Asignaciones
-    cursor.execute("""
-        SELECT up.id,
-               u.nombre AS usuario,
-               p.nombre AS punto,
-               p.idequipo
-        FROM usuarios_puntos up
-        JOIN usuarios u ON u.idusuarios = up.idusuario
-        JOIN puntos_venta p ON p.idpunto = up.idpunto
-    """)
-    asignaciones = cursor.fetchall()
+        # Puntos de venta
+        cursor.execute("SELECT idpunto, nombre, idequipo FROM puntos_venta WHERE estado='Activo'")
+        puntos = cursor.fetchall()
 
-    conexion.close()
+        # Asignaciones
+        cursor.execute("""
+            SELECT up.id,
+                   u.nombre AS usuario,
+                   p.nombre AS punto,
+                   p.idequipo
+            FROM usuarios_puntos up
+            JOIN usuarios u ON u.idusuarios = up.idusuario
+            JOIN puntos_venta p ON p.idpunto = up.idpunto
+        """)
+        asignaciones = cursor.fetchall()
 
-    message = request.args.get("message")
+        message = request.args.get("message")
 
-    return render_template(
-        "usuarios_puntos.html",
-        usuarios=usuarios,
-        puntos=puntos,
-        asignaciones=asignaciones,
-        message=message,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "usuarios_puntos.html",
+            usuarios=usuarios,
+            puntos=puntos,
+            asignaciones=asignaciones,
+            message=message,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("ERROR USUARIOS_PUNTOS:", e)
+        return "Error interno", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # ==============================
@@ -931,22 +944,32 @@ def reg_usuario_punto():
     idusuario = request.form["idusuario"]
     idpunto = request.form["idpunto"]
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
     try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
         cursor.execute("""
             INSERT INTO usuarios_puntos (idusuario, idpunto)
             VALUES (%s, %s)
         """, (idusuario, idpunto))
         conexion.commit()
         msg = "Usuario asignado correctamente!"
-    except Exception:
+
+    except Exception as e:
+        print("ERROR REG_USUARIO_PUNTO:", e)
         msg = "El usuario ya está asignado a ese punto"
 
-    conexion.close()
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(url_for("usuarios_puntos", message=msg))
+
 
 
 # ==============================
@@ -958,14 +981,28 @@ def delete_usuario_punto(id):
     if "id" not in session or session["rol"] != "Administrador":
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute(
-        "DELETE FROM usuarios_puntos WHERE id=%s",
-        (id,)
-    )
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            "DELETE FROM usuarios_puntos WHERE id=%s",
+            (id,)
+        )
+        conexion.commit()
+
+    except Exception as e:
+        print("ERROR DELETE_USUARIO_PUNTO:", e)
+        # mantenemos el flujo original (redirige igual)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for(
@@ -973,6 +1010,7 @@ def delete_usuario_punto(id):
             message="Asignación eliminada correctamente"
         )
     )
+
 
 
 #--------------------------------------Ventas-------------------------------------
@@ -984,87 +1022,98 @@ def ventas_home():
 
     message = request.args.get("message")
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    # -------------------- JORNADA ACTIVA --------------------
-    cursor.execute("""
-        SELECT idjornada, nombre
-        FROM jornadas
-        WHERE estado = 'Activo'
-        LIMIT 1
-    """)
-    jornada = cursor.fetchone()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    if not jornada:
-        conexion.close()
-        return "ERROR: No hay jornada activa"
+        # -------------------- JORNADA ACTIVA --------------------
+        cursor.execute("""
+            SELECT idjornada, nombre
+            FROM jornadas
+            WHERE estado = 'Activo'
+            LIMIT 1
+        """)
+        jornada = cursor.fetchone()
 
-    session["idjornada"] = jornada["idjornada"]
-    idjornada = jornada["idjornada"]
-    idpunto = session.get("idpunto")
+        if not jornada:
+            return "ERROR: No hay jornada activa"
 
+        session["idjornada"] = jornada["idjornada"]
+        idjornada = jornada["idjornada"]
+        idpunto = session.get("idpunto")
 
-    # -------------------- RECAUDACIÓN TOTAL --------------------
-    cursor.execute("""
-    SELECT IFNULL(SUM(total), 0) AS recaudacion
-    FROM ventas
-    WHERE idjornada = %s
-      AND idpunto = %s
-      AND estado = 'OK'
-""", (idjornada, idpunto))
-    recaudacion = cursor.fetchone()["recaudacion"]
+        # -------------------- RECAUDACIÓN TOTAL --------------------
+        cursor.execute("""
+            SELECT IFNULL(SUM(total), 0) AS recaudacion
+            FROM ventas
+            WHERE idjornada = %s
+              AND idpunto = %s
+              AND estado = 'OK'
+        """, (idjornada, idpunto))
+        recaudacion = cursor.fetchone()["recaudacion"]
 
-    # -------------------- CLIENTES --------------------
-    cursor.execute("""
-        SELECT idclientes, apenomb
-        FROM clientes
-        ORDER BY apenomb
-    """)
-    clientes = cursor.fetchall()
+        # -------------------- CLIENTES --------------------
+        cursor.execute("""
+            SELECT idclientes, apenomb
+            FROM clientes
+            ORDER BY apenomb
+        """)
+        clientes = cursor.fetchall()
 
-    # -------------------- MODOS DE PAGO --------------------
-    cursor.execute("""
-        SELECT idmodopago, modo
-        FROM modopago
-        ORDER BY modo
-    """)
-    modopago = cursor.fetchall()
+        # -------------------- MODOS DE PAGO --------------------
+        cursor.execute("""
+            SELECT idmodopago, modo
+            FROM modopago
+            ORDER BY modo
+        """)
+        modopago = cursor.fetchall()
 
-    # -------------------- PRODUCTOS --------------------
-    cursor.execute("""
-        SELECT p.idproductos, p.nombre, p.importe
-        FROM productos p
-        JOIN jornadas_productos jp ON p.idproductos = jp.idproducto
-        JOIN jornadas j ON jp.idjornada = j.idjornada
-        WHERE p.estado = 'Activo'
-        AND j.estado = 'Activo'
-        ORDER BY p.nombre
-    """)
-    productos = cursor.fetchall()
+        # -------------------- PRODUCTOS --------------------
+        cursor.execute("""
+            SELECT p.idproductos, p.nombre, p.importe
+            FROM productos p
+            JOIN jornadas_productos jp ON p.idproductos = jp.idproducto
+            JOIN jornadas j ON jp.idjornada = j.idjornada
+            WHERE p.estado = 'Activo'
+              AND j.estado = 'Activo'
+            ORDER BY p.nombre
+        """)
+        productos = cursor.fetchall()
 
-    # -------------------- CLIENTES PARA PUNTOS --------------------
-    cursor.execute("""
-        SELECT idclientes, apenomb
-        FROM clientes
-        ORDER BY apenomb
-    """)
-    clientes_puntos = cursor.fetchall()
+        # -------------------- CLIENTES PARA PUNTOS --------------------
+        cursor.execute("""
+            SELECT idclientes, apenomb
+            FROM clientes
+            ORDER BY apenomb
+        """)
+        clientes_puntos = cursor.fetchall()
 
-    conexion.close()
+        return render_template(
+            "ventas.html",
+            usuario=session["nombre"],
+            rol=session["rol"],
+            message=message,
+            jornada=jornada,
+            recaudacion=recaudacion,
+            clientes=clientes,
+            modopago=modopago,
+            productos=productos,
+            clientes_puntos=clientes_puntos
+        )
 
-    return render_template(
-        "ventas.html",
-        usuario=session["nombre"],
-        rol=session["rol"],
-        message=message,
-        jornada=jornada,
-        recaudacion=recaudacion,
-        clientes=clientes,
-        modopago=modopago,
-        productos=productos,
-        clientes_puntos=clientes_puntos
-    )
+    except Exception as e:
+        print("ERROR VENTAS_HOME:", e)
+        return "Error interno en ventas", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 
@@ -1075,55 +1124,58 @@ def registrar_venta():
         return redirect(url_for("home"))
 
     idusuario = session["id"]
-    idpunto = session["idpunto"]
+    idpunto   = session["idpunto"]
     idjornada = session["idjornada"]
     idcliente = request.form.get("cliente")
     idmodopago = request.form.get("modopago")
 
-    # ===============================
-    # 🔒 VALIDAR CAJA ABIERTA
-    # ===============================
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
-
-    cursor.execute("""
-        SELECT estado
-        FROM jornadas_puntos
-        WHERE idjornada = %s
-          AND idpunto = %s
-    """, (idjornada, idpunto))
-
-    jp = cursor.fetchone()
-
-    if not jp or jp["estado"] != "Abierto":
-        conexion.close()
-        return jsonify({
-            "success": False,
-            "error": "La caja de este punto de venta está cerrada"
-        }), 403
-
-    # ===============================
-    # CONTINÚA LÓGICA ORIGINAL
-    # ===============================
-    total_str = request.form.get("total", "0")
-    total_str = total_str.replace(".", "").replace(",", ".")
-    total = float(total_str)
-
-    productos = request.form.getlist("productos[]")
-    cantidades = request.form.getlist("cantidades[]")
-    precios = request.form.getlist("precios[]")
-    cortesias = request.form.getlist("cortesias[]")
-
-    # ⚠️ Reutilizamos la misma conexión
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
     try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        # ===============================
+        # 🔒 VALIDAR CAJA ABIERTA
+        # ===============================
+        cursor.execute("""
+            SELECT estado
+            FROM jornadas_puntos
+            WHERE idjornada = %s
+              AND idpunto = %s
+        """, (idjornada, idpunto))
+
+        jp = cursor.fetchone()
+
+        if not jp or jp["estado"] != "Abierto":
+            return jsonify({
+                "success": False,
+                "error": "La caja de este punto de venta está cerrada"
+            }), 403
+
+        # ===============================
+        # CONTINÚA LÓGICA ORIGINAL
+        # ===============================
+        total_str = request.form.get("total", "0")
+        total_str = total_str.replace(".", "").replace(",", ".")
+        total = float(total_str)
+
+        productos  = request.form.getlist("productos[]")
+        cantidades = request.form.getlist("cantidades[]")
+        precios    = request.form.getlist("precios[]")
+        cortesias  = request.form.getlist("cortesias[]")
+
+        # 🔁 reutilizamos la MISMA conexión
+        cursor = conexion.cursor()
+
         qr_token = uuid.uuid4().hex
 
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
-             total, descuento_total, fecha_hora, estado, observaciones, puntos_ganados, qr_token)
+             total, descuento_total, fecha_hora, estado, observaciones,
+             puntos_ganados, qr_token)
             VALUES (%s,%s,%s,%s,%s,%s,0,NOW(),'OK','',0,%s)
         """, (
             idjornada,
@@ -1143,7 +1195,6 @@ def registrar_venta():
             cantidad = int(cantidades[i])
             precio = float(precios[i])
 
-            # 🔹 Seguridad
             es_cortesia = False
             if i < len(cortesias):
                 es_cortesia = cortesias[i] == "1"
@@ -1174,15 +1225,19 @@ def registrar_venta():
 
         conexion.commit()
 
+        return jsonify({"success": True, "idventa": idventa})
+
     except Exception as e:
-        conexion.rollback()
+        if conexion:
+            conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
     finally:
-        conexion.close()
-
-    return jsonify({"success": True, "idventa": idventa})
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 #Ruta para actualizar la recaudacion por caja 
@@ -1192,27 +1247,37 @@ def recaudacion_actual():
     if "idpunto" not in session or "idjornada" not in session:
         return jsonify({"total": 0})
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT COALESCE(SUM(d.subtotal),0) AS total
-        FROM ventas v
-        JOIN ventas_detalle d ON d.idventa = v.idventa
-        WHERE v.idpunto = %s
-          AND v.idjornada = %s
-    """, (
-        session["idpunto"],
-        session["idjornada"]
-    ))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    total = cursor.fetchone()["total"]
-    conexion.close()
+        cursor.execute("""
+            SELECT COALESCE(SUM(d.subtotal),0) AS total
+            FROM ventas v
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            WHERE v.idpunto = %s
+              AND v.idjornada = %s
+        """, (
+            session["idpunto"],
+            session["idjornada"]
+        ))
 
-    return jsonify({"total": float(total)})
+        total = cursor.fetchone()["total"]
 
+        return jsonify({"total": float(total)})
 
+    except Exception as e:
+        print("ERROR RECAUDACION ACTUAL:", e)
+        return jsonify({"total": 0}), 500
 
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 #finalizar jornada
@@ -1226,28 +1291,42 @@ def finalizar_jornada():
     if not idjornada:
         return redirect(url_for("ventas"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        UPDATE jornadas
-        SET estado = 'Cerrado'
-        WHERE idjornada = %s
-    """, (idjornada,))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            UPDATE jornadas
+            SET estado = 'Cerrado'
+            WHERE idjornada = %s
+        """, (idjornada,))
 
-    session.pop("idjornada", None)
+        conexion.commit()
 
-    return redirect(url_for("ventas", message="Jornada finalizada"))
+        # 🔹 Limpieza de sesión SOLO si el cierre fue correcto
+        session.pop("idjornada", None)
+
+        return redirect(
+            url_for("ventas", message="Jornada finalizada")
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR FINALIZAR JORNADA:", e)
+        return "Error al finalizar la jornada", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
-
-
-#-------------------------------Clientes----------------------------------
-#ruta principal de clientes
-
+#--------------------------------------Clientes----------------------------------------------------------------
 
 # Ruta principal clientes
 @app.route("/clientes", methods=['GET'])
@@ -1256,20 +1335,36 @@ def home_clientes():
     if "id" not in session or session['rol'] != "Administrador":
         return redirect(url_for('home'))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
-    cursor.execute("SELECT * FROM clientes")
-    data = cursor.fetchall()
-    message = request.args.get('message')  # 👈 mensaje de confirmación
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return render_template(
-        "clientes.html",
-        clientes=data,
-        message=message,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        cursor.execute("SELECT * FROM clientes")
+        data = cursor.fetchall()
+
+        message = request.args.get('message')  # 👈 mensaje de confirmación
+
+        return render_template(
+            "clientes.html",
+            clientes=data,
+            message=message,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("ERROR CLIENTES:", e)
+        return "Error interno en clientes", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # Ruta para guardar clientes
@@ -1289,13 +1384,35 @@ def guardar_Clientes():
         VALUES (%s, %s, %s, %s, %s)
     """
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for('home_clientes', message='Cliente Registrado Correctamente'))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento))
+        conexion.commit()
+
+        return redirect(
+            url_for(
+                'home_clientes',
+                message='Cliente Registrado Correctamente'
+            )
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR GUARDAR CLIENTE:", e)
+        return "Error al guardar cliente", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # Ruta para modificar clientes
@@ -1316,13 +1433,38 @@ def update_Clientes(id):
         WHERE idclientes=%s
     """
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento, id))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for('home_clientes', message='Cliente Actualizado Correctamente'))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            query,
+            (apenomb, dni, cuil, correo, fecha_nacimiento, id)
+        )
+        conexion.commit()
+
+        return redirect(
+            url_for(
+                'home_clientes',
+                message='Cliente Actualizado Correctamente'
+            )
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR UPDATE CLIENTE:", e)
+        return "Error al actualizar cliente", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # Ruta para eliminar clientes
@@ -1331,37 +1473,74 @@ def eliminar_Clientes(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("DELETE FROM clientes WHERE idclientes=%s", (id,))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for('home_clientes', message='Cliente Eliminado Correctamente'))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            "DELETE FROM clientes WHERE idclientes=%s",
+            (id,)
+        )
+        conexion.commit()
+
+        return redirect(
+            url_for(
+                'home_clientes',
+                message='Cliente Eliminado Correctamente'
+            )
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR DELETE CLIENTE:", e)
+        return "Error al eliminar cliente", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 #Buscar Clientes
 @app.route("/buscar_clientes")
 def buscar_clientes():
     q = request.args.get("q", "").strip()
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT idclientes, apenomb, dni
-        FROM clientes
-        WHERE apenomb LIKE %s
-           OR dni LIKE %s
-        ORDER BY apenomb
-        LIMIT 10
-    """, (f"%{q}%", f"%{q}%"))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    clientes = cursor.fetchall()
-    conexion.close()
+        cursor.execute("""
+            SELECT idclientes, apenomb, dni
+            FROM clientes
+            WHERE apenomb LIKE %s
+               OR dni LIKE %s
+            ORDER BY apenomb
+            LIMIT 10
+        """, (f"%{q}%", f"%{q}%"))
 
-    return jsonify(clientes)
+        clientes = cursor.fetchall()
+        return jsonify(clientes)
 
-#Guardar Clientes Modal
+    except Exception as e:
+        print("ERROR BUSCAR CLIENTES:", e)
+        return jsonify([])
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+# Modal para guardar Clientes            
 @app.route("/guardar_ClientesMODAL", methods=['POST'])
 def guardar_ClientesMOD():
     if "id" not in session:
@@ -1371,20 +1550,45 @@ def guardar_ClientesMOD():
     dni = request.form['dni']
     cuil = request.form['cuil']
     correo = request.form['correo']
-    fecha_nacimiento = request.form['fecha_nacimiento'] or None  # Puede estar vacío
+    fecha_nacimiento = request.form['fecha_nacimiento'] or None
 
     query = """
         INSERT INTO clientes (apenomb, dni, cuil, correo, fecha_nacimiento)
         VALUES (%s, %s, %s, %s, %s)
     """
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute(query, (apenomb, dni, cuil, correo, fecha_nacimiento))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for('ventas_home', message='Cliente Registrado Correctamente'))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            query,
+            (apenomb, dni, cuil, correo, fecha_nacimiento)
+        )
+        conexion.commit()
+
+        return redirect(
+            url_for(
+                'ventas_home',
+                message='Cliente Registrado Correctamente'
+            )
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR GUARDAR CLIENTE MODAL:", e)
+        return "Error al registrar cliente", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 # ------------------------------Jornadas----------------------------------
 
@@ -1396,40 +1600,53 @@ def jornadas_listado():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT idjornada, nombre, finicio, ffinal, estado
-        FROM jornadas
-        ORDER BY idjornada DESC
-    """)
-    jornadas = cursor.fetchall()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    cursor.execute("""
-        SELECT idpunto, nombre
-        FROM puntos_venta
-        WHERE estado='Activo'
-    """)
-    puntos_venta = cursor.fetchall()
+        cursor.execute("""
+            SELECT idjornada, nombre, finicio, ffinal, estado
+            FROM jornadas
+            ORDER BY idjornada DESC
+        """)
+        jornadas = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT idproductos, nombre, importe
-        FROM productos
-        WHERE estado='Activo'
-    """)
-    productos = cursor.fetchall()
+        cursor.execute("""
+            SELECT idpunto, nombre
+            FROM puntos_venta
+            WHERE estado='Activo'
+        """)
+        puntos_venta = cursor.fetchall()
 
-    conexion.close()
+        cursor.execute("""
+            SELECT idproductos, nombre, importe
+            FROM productos
+            WHERE estado='Activo'
+        """)
+        productos = cursor.fetchall()
 
-    return render_template(
-        "jornadas.html",
-        jornadas=jornadas,
-        puntos_venta=puntos_venta,
-        productos=productos,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "jornadas.html",
+            jornadas=jornadas,
+            puntos_venta=puntos_venta,
+            productos=productos,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("ERROR LISTADO JORNADAS:", e)
+        return "Error interno al cargar jornadas", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 # =====================================================
 # CREAR JORNADA
@@ -1439,10 +1656,13 @@ def jornadas_crear():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
     try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
         nombre = request.form["nombre"].upper()
         clave = request.form["clave"]
         finicio = request.form["finicio"]
@@ -1474,14 +1694,19 @@ def jornadas_crear():
         conexion.commit()
 
     except Exception as e:
-        conexion.rollback()
+        if conexion:
+            conexion.rollback()
         print("❌ Error al crear jornada:", e)
         return redirect(url_for("jornadas_listado"))
 
     finally:
-        conexion.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(url_for("jornadas_listado"))
+
 # =====================================================
 # ACTUALIZAR JORNADA
 # =====================================================
@@ -1495,20 +1720,34 @@ def jornadas_actualizar(idjornada):
     finicio = request.form["finicio"]
     ffinal = request.form["ffinal"]
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        UPDATE jornadas
-        SET nombre = %s,
-            clave = %s,
-            finicio = %s,
-            ffinal = %s
-        WHERE idjornada = %s
-    """, (nombre, clave, finicio, ffinal, idjornada))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            UPDATE jornadas
+            SET nombre = %s,
+                clave = %s,
+                finicio = %s,
+                ffinal = %s
+            WHERE idjornada = %s
+        """, (nombre, clave, finicio, ffinal, idjornada))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al actualizar jornada:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(url_for("jornadas_admin"))
 
@@ -1520,17 +1759,31 @@ def jornadas_update(idjornada):
     if "id" not in session:
         return redirect(url_for("home"))
 
-   
-    query = "UPDATE jornadas SET estado = 'Finalizado' WHERE idjornada = %s"
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute(query, (idjornada))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        query = "UPDATE jornadas SET estado = 'Finalizado' WHERE idjornada = %s"
+        cursor.execute(query, (idjornada,))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al finalizar jornada:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(url_for("jornadas_admin"))
+
 
 # =====================================================
 # LISTADO / ADMINISTRACIÓN DE JORNADAS
@@ -1540,30 +1793,43 @@ def jornadas_admin():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT 
-            idjornada,
-            nombre,
-            clave,
-            finicio,
-            ffinal,
-            estado
-        FROM jornadas
-        ORDER BY idjornada DESC
-    """)
-    jornadas = cursor.fetchall()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    conexion.close()
+        cursor.execute("""
+            SELECT 
+                idjornada,
+                nombre,
+                clave,
+                finicio,
+                ffinal,
+                estado
+            FROM jornadas
+            ORDER BY idjornada DESC
+        """)
+        jornadas = cursor.fetchall()
 
-    return render_template(
-        "jornadas_admin.html",
-        jornadas=jornadas,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "jornadas_admin.html",
+            jornadas=jornadas,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("❌ Error en jornadas_admin:", e)
+        return "Error interno en jornadas admin", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # =====================================================
@@ -1574,68 +1840,80 @@ def jornadas_admin_detalle(idjornada):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    # -----------------------------
-    # JORNADA SELECCIONADA
-    # -----------------------------
-    cursor.execute("""
-        SELECT *
-        FROM jornadas
-        WHERE idjornada = %s
-    """, (idjornada,))
-    jornada = cursor.fetchone()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    if not jornada:
-        conexion.close()
-        return redirect(url_for("jornadas_admin"))
+        # -----------------------------
+        # JORNADA SELECCIONADA
+        # -----------------------------
+        cursor.execute("""
+            SELECT *
+            FROM jornadas
+            WHERE idjornada = %s
+        """, (idjornada,))
+        jornada = cursor.fetchone()
 
-    # -----------------------------
-    # PUNTOS DE VENTA
-    # -----------------------------
-    cursor.execute("""
-        SELECT 
-            pv.idpunto,
-            pv.nombre,
-            IF(jp.id IS NULL, 0, 1) AS asignado
-        FROM puntos_venta pv
-        LEFT JOIN jornadas_puntos jp
-            ON pv.idpunto = jp.idpunto
-            AND jp.idjornada = %s
-        WHERE pv.estado = 'Activo'
-        ORDER BY pv.nombre
-    """, (idjornada,))
-    puntos_venta = cursor.fetchall()
+        if not jornada:
+            return redirect(url_for("jornadas_admin"))
 
-    # -----------------------------
-    # PRODUCTOS
-    # -----------------------------
-    cursor.execute("""
-        SELECT 
-            p.idproductos,
-            p.nombre,
-            p.importe,
-            IF(jpr.id IS NULL, 0, 1) AS asignado
-        FROM productos p
-        LEFT JOIN jornadas_productos jpr
-            ON p.idproductos = jpr.idproducto
-            AND jpr.idjornada = %s
-        WHERE p.estado = 'Activo'
-        ORDER BY p.nombre
-    """, (idjornada,))
-    productos = cursor.fetchall()
+        # -----------------------------
+        # PUNTOS DE VENTA
+        # -----------------------------
+        cursor.execute("""
+            SELECT 
+                pv.idpunto,
+                pv.nombre,
+                IF(jp.id IS NULL, 0, 1) AS asignado
+            FROM puntos_venta pv
+            LEFT JOIN jornadas_puntos jp
+                ON pv.idpunto = jp.idpunto
+                AND jp.idjornada = %s
+            WHERE pv.estado = 'Activo'
+            ORDER BY pv.nombre
+        """, (idjornada,))
+        puntos_venta = cursor.fetchall()
 
-    conexion.close()
+        # -----------------------------
+        # PRODUCTOS
+        # -----------------------------
+        cursor.execute("""
+            SELECT 
+                p.idproductos,
+                p.nombre,
+                p.importe,
+                IF(jpr.id IS NULL, 0, 1) AS asignado
+            FROM productos p
+            LEFT JOIN jornadas_productos jpr
+                ON p.idproductos = jpr.idproducto
+                AND jpr.idjornada = %s
+            WHERE p.estado = 'Activo'
+            ORDER BY p.nombre
+        """, (idjornada,))
+        productos = cursor.fetchall()
 
-    return render_template(
-        "jornada_administrar.html",
-        jornada=jornada,
-        puntos_venta=puntos_venta,
-        productos=productos,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "jornada_administrar.html",
+            jornada=jornada,
+            puntos_venta=puntos_venta,
+            productos=productos,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("❌ Error en jornadas_admin_detalle:", e)
+        return "Error interno en administración de jornada", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 # =====================================================
@@ -1646,18 +1924,33 @@ def agregar_punto_jornada(idjornada, idpunto):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        INSERT IGNORE INTO jornadas_puntos (idjornada, idpunto)
-        VALUES (%s, %s)
-    """, (idjornada, idpunto))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            INSERT IGNORE INTO jornadas_puntos (idjornada, idpunto)
+            VALUES (%s, %s)
+        """, (idjornada, idpunto))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al agregar punto a jornada:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(f"/Jornadas_Admin/{idjornada}")
+
 
 
 # =====================================================
@@ -1668,64 +1961,152 @@ def agregar_producto_jornada(idjornada, idproducto):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        INSERT IGNORE INTO jornadas_productos (idjornada, idproducto)
-        VALUES (%s, %s)
-    """, (idjornada, idproducto))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            INSERT IGNORE INTO jornadas_productos (idjornada, idproducto)
+            VALUES (%s, %s)
+        """, (idjornada, idproducto))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al agregar producto a jornada:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(f"/Jornadas_Admin/{idjornada}")
 
 
+
 #-----------------------------Productos----------------------------------
 #Ruta Principal de productos
-@app.route("/Productos")
-def home_Productos():
-    conexion = getConnection()
-    query = 'select * from productos'
-    message = request.args.get('message')
-    cursor = conexion.cursor()
-    cursor.execute(query)
-    data = cursor.fetchall()
-    return render_template('productos.html',
-                           message = message,
-                           productos=data,
-                           rol=session['rol'],
-                           usuario=session['nombre'])
+@app.route("/agregar_producto_jornada/<int:idjornada>/<int:idproducto>")
+def agregar_producto_jornada(idjornada, idproducto):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            INSERT IGNORE INTO jornadas_productos (idjornada, idproducto)
+            VALUES (%s, %s)
+        """, (idjornada, idproducto))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al agregar producto a jornada:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    return redirect(f"/Jornadas_Admin/{idjornada}")
+
 
 #Ruta para guardar Productos
 
-@app.route("/guardar_Productos",methods=['POST'])
+@app.route("/guardar_Productos", methods=['POST'])
 def save_Productos():
-    conexion = getConnection()
-    nombre = request.form['nombre'].upper()
-    importe = request.form['importe']
-    estado = request.form['estado']
-    query = 'insert into productos(nombre,importe,estado)VALUES(%s,%s,%s)'
-    cursor = conexion.cursor()
-    cursor.execute(query,(nombre,importe,estado))
-    conexion.commit()
-    conexion.close()
-    return redirect(url_for('home_Productos',message='Producto Agregado Correctamente'))
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+
+        nombre = request.form['nombre'].upper()
+        importe = request.form['importe']
+        estado = request.form['estado']
+
+        query = 'INSERT INTO productos (nombre, importe, estado) VALUES (%s, %s, %s)'
+
+        cursor = conexion.cursor()
+        cursor.execute(query, (nombre, importe, estado))
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al guardar producto:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    return redirect(
+        url_for(
+            'home_Productos',
+            message='Producto Agregado Correctamente'
+        )
+    )
+
 
 #Ruta para modificar productos
-@app.route("/Update_Productos/<int:id>",methods=['POST'])
+@app.route("/Update_Productos/<int:id>", methods=['POST'])
 def update_Productos(id):
-    conexion = getConnection()
-    nombre = request.form['nombre'].upper()
-    importe = request.form['importe']
-    estado = request.form['estado']
-    query = 'update productos set nombre=%s,importe=%s,estado=%s where idproductos=%s'
-    cursor = conexion.cursor()
-    cursor.execute(query,(nombre,importe,estado,id))
-    conexion.commit()
-    conexion.close()
-    return redirect(url_for('home_Productos',message='Producto Modificado Correctamente'))
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+
+        nombre = request.form['nombre'].upper()
+        importe = request.form['importe']
+        estado = request.form['estado']
+
+        query = """
+            UPDATE productos
+            SET nombre = %s,
+                importe = %s,
+                estado = %s
+            WHERE idproductos = %s
+        """
+
+        cursor = conexion.cursor()
+        cursor.execute(query, (nombre, importe, estado, id))
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al actualizar producto:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    return redirect(
+        url_for(
+            'home_Productos',
+            message='Producto Modificado Correctamente'
+        )
+    )
+
 
 #Ruta para eliminar productos
 @app.route("/delete_Productos/<int:id>")
@@ -1733,13 +2114,37 @@ def delete_producto(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute("DELETE FROM productos WHERE idproductos=%s", (id,))
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
 
-    return redirect(url_for("home_Jornadas",message ='Producto eliminado correctamente'))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            "DELETE FROM productos WHERE idproductos = %s",
+            (id,)
+        )
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al eliminar producto:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    return redirect(
+        url_for(
+            "home_Jornadas",
+            message='Producto eliminado correctamente'
+        )
+    )
+
 
 #------------------------------Punto de venta-----------------------------
 # Ruta para obtener "MAC" (ahora IP real del cliente)
@@ -1773,11 +2178,24 @@ def punto_venta():
     mac = obtener_mac()
     message = request.args.get('message')
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute('SELECT * FROM puntos_venta')
-    data = cursor.fetchall()
-    conexion.close()
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+        cursor.execute("SELECT * FROM puntos_venta")
+        data = cursor.fetchall()
+
+    except Exception as e:
+        print("❌ Error en puntos_venta:", e)
+        data = []
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return render_template(
         'punto_venta.html',
@@ -1789,31 +2207,47 @@ def punto_venta():
     )
 
 
+
 # ============================
 # RUTA PARA GUARDAR PUNTO VENTA
 # ============================
 
 @app.route("/guardar_Puntos_venta", methods=['POST'])
 def save_punto():
-    conexion = getConnection()
-    cursor = conexion.cursor()
 
-    nombre = request.form['nombre'].upper()
-    idequipo = request.form.get('idequipo')
+    conexion = None
+    cursor = None
 
-    # Si no se carga equipo, se asigna automáticamente el cliente actual
-    if not idequipo:
-        idequipo = obtener_mac()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    estado = request.form['estado']
+        nombre = request.form['nombre'].upper()
+        idequipo = request.form.get('idequipo')
 
-    sql = """
-        INSERT INTO puntos_venta (nombre, idequipo, estado)
-        VALUES (%s, %s, %s)
-    """
-    cursor.execute(sql, (nombre, idequipo, estado))
-    conexion.commit()
-    conexion.close()
+        # Si no se carga equipo, se asigna automáticamente el cliente actual
+        if not idequipo:
+            idequipo = obtener_mac()
+
+        estado = request.form['estado']
+
+        sql = """
+            INSERT INTO puntos_venta (nombre, idequipo, estado)
+            VALUES (%s, %s, %s)
+        """
+        cursor.execute(sql, (nombre, idequipo, estado))
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al guardar punto de venta:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for(
@@ -1823,27 +2257,43 @@ def save_punto():
     )
 
 
+
 # ===============================
 # RUTA PARA MODIFICAR PUNTO VENTA
 # ===============================
 
 @app.route("/Update_Puntos_venta/<int:id>", methods=['POST'])
 def update_Puntos(id):
-    conexion = getConnection()
-    cursor = conexion.cursor()
 
-    nombre = request.form['nombre'].upper()
-    idequipo = request.form['idequipo']
-    estado = request.form['estado']
+    conexion = None
+    cursor = None
 
-    query = """
-        UPDATE puntos_venta
-        SET nombre=%s, idequipo=%s, estado=%s
-        WHERE idpunto=%s
-    """
-    cursor.execute(query, (nombre, idequipo, estado, id))
-    conexion.commit()
-    conexion.close()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        nombre = request.form['nombre'].upper()
+        idequipo = request.form['idequipo']
+        estado = request.form['estado']
+
+        query = """
+            UPDATE puntos_venta
+            SET nombre=%s, idequipo=%s, estado=%s
+            WHERE idpunto=%s
+        """
+        cursor.execute(query, (nombre, idequipo, estado, id))
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al actualizar punto de venta:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for(
@@ -1851,6 +2301,7 @@ def update_Puntos(id):
             message='Punto de Venta Modificado Correctamente'
         )
     )
+
 
 
 # =============================
@@ -1862,14 +2313,29 @@ def delete_puntos(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
-    cursor.execute(
-        "DELETE FROM puntos_venta WHERE idpunto=%s",
-        (id,)
-    )
-    conexion.commit()
-    conexion.close()
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        cursor.execute(
+            "DELETE FROM puntos_venta WHERE idpunto=%s",
+            (id,)
+        )
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al eliminar punto de venta:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for(
@@ -1878,6 +2344,7 @@ def delete_puntos(id):
         )
     )
 
+
 #-----------------------------Modo Pago----------------------------------
 #ruta principal modo de pago
 @app.route("/Modopago", methods=["GET"])
@@ -1885,23 +2352,36 @@ def home_Modopago():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    cursor.execute("SELECT * FROM modopago")
-    data = cursor.fetchall()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    message = request.args.get("message")
+        cursor.execute("SELECT * FROM modopago")
+        data = cursor.fetchall()
 
-    conexion.close()
+        message = request.args.get("message")
 
-    return render_template(
-        "modopago.html",
-        modo=data,
-        message=message,
-        usuario=session["nombre"],
-        rol=session["rol"]
-    )
+        return render_template(
+            "modopago.html",
+            modo=data,
+            message=message,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("❌ Error en Modopago:", e)
+        return "Error interno en Modopago", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 # ruta para guardar modo de pago
 @app.route("/guardar_Modopago", methods=["POST"])
@@ -1912,16 +2392,33 @@ def save_Modopago():
     modo = request.form["modopago"].upper()
     estado = request.form["estado"]
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        INSERT INTO modopago (modo, estado)
-        VALUES (%s, %s)
-    """, (modo, estado))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            INSERT INTO modopago (modo, estado)
+            VALUES (%s, %s)
+        """, (modo, estado))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al guardar Modopago:", e)
+        return redirect(
+            url_for("home_Modopago", message="Error al registrar modo de pago")
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for("home_Modopago", message="Modo de Pago registrado correctamente")
@@ -1937,89 +2434,136 @@ def update_Modopago(id):
     modo = request.form["modo"].upper()
     estado = request.form["estado"]
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute("""
-        UPDATE modopago
-        SET modo = %s, estado = %s
-        WHERE idmodopago = %s
-    """, (modo, estado, id))
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute("""
+            UPDATE modopago
+            SET modo = %s, estado = %s
+            WHERE idmodopago = %s
+        """, (modo, estado, id))
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al actualizar Modopago:", e)
+        return redirect(
+            url_for("home_Modopago", message="Error al actualizar modo de pago")
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for("home_Modopago", message="Modo de Pago actualizado correctamente")
     )
 
-#ruta para eliminar modo de pago
+
+# ruta para eliminar modo de pago
 @app.route("/delete_Modopago/<int:id>")
 def delete_Modopago(id):
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor()
+    conexion = None
+    cursor = None
 
-    cursor.execute(
-        "DELETE FROM modopago WHERE idmodopago = %s",
-        (id,)
-    )
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
 
-    conexion.commit()
-    conexion.close()
+        cursor.execute(
+            "DELETE FROM modopago WHERE idmodopago = %s",
+            (id,)
+        )
+
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al eliminar Modopago:", e)
+        return redirect(
+            url_for("home_Modopago", message="Error al eliminar modo de pago")
+        )
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     return redirect(
         url_for("home_Modopago", message="Modo de Pago eliminado correctamente")
     )
+
 #------------------------------ TIKET DE VENTA ----------------------------------
 #Ticket de venta 
 @app.route("/ticket/<int:idventa>")
 def ticket(idventa):
 
-    # ======================
-    # CONEXIÓN
-    # ======================
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    # ======================
-    # DATOS DE LA VENTA
-    # ======================
-    cursor.execute("""
-        SELECT v.idventa,
-               v.fecha_hora AS fecha,
-               v.total,
-               IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
-               j.nombre AS jornada
-        FROM ventas v
-        LEFT JOIN clientes c ON c.idclientes = v.idclientes
-        JOIN jornadas j ON j.idjornada = v.idjornada
-        WHERE v.idventa = %s
-    """, (idventa,))
+    try:
+        # ======================
+        # CONEXIÓN
+        # ======================
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    venta = cursor.fetchone()
+        # ======================
+        # DATOS DE LA VENTA
+        # ======================
+        cursor.execute("""
+            SELECT v.idventa,
+                   v.fecha_hora AS fecha,
+                   v.total,
+                   IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
+                   j.nombre AS jornada
+            FROM ventas v
+            LEFT JOIN clientes c ON c.idclientes = v.idclientes
+            JOIN jornadas j ON j.idjornada = v.idjornada
+            WHERE v.idventa = %s
+        """, (idventa,))
 
-    if not venta:
-        conexion.close()
-        return "Venta no encontrada", 404
+        venta = cursor.fetchone()
 
-    # ======================
-    # DETALLE DE PRODUCTOS
-    # ======================
-    cursor.execute("""
-        SELECT p.nombre AS producto,
-               d.cantidad,
-               d.subtotal
-        FROM ventas_detalle d
-        JOIN productos p ON p.idproductos = d.idproductos
-        WHERE d.idventa = %s
-    """, (idventa,))
+        if not venta:
+            return "Venta no encontrada", 404
 
-    detalle = cursor.fetchall()
+        # ======================
+        # DETALLE DE PRODUCTOS
+        # ======================
+        cursor.execute("""
+            SELECT p.nombre AS producto,
+                   d.cantidad,
+                   d.subtotal
+            FROM ventas_detalle d
+            JOIN productos p ON p.idproductos = d.idproductos
+            WHERE d.idventa = %s
+        """, (idventa,))
 
-    conexion.close()
+        detalle = cursor.fetchall()
+
+    except Exception as e:
+        print("❌ Error al generar ticket:", e)
+        return "Error interno al generar ticket", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
     # ======================
     # GENERAR QR
@@ -2052,28 +2596,51 @@ def ticket(idventa):
         qr_base64=qr_base64
     )
 
+# Ruta para ver el ticket de Venta
 
 @app.route("/ver_ticket/<token>")
 def ver_ticket(token):
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    cursor.execute("""
-        SELECT v.idventa, v.fecha_hora, v.total, v.estado_ticket,
-               j.nombre AS jornada,p.nombre as caja
-        FROM ventas v
-        JOIN jornadas j ON v.idjornada = j.idjornada
-        JOIN puntos_venta p ON v.idpunto = p.idpunto
-        WHERE v.qr_token = %s
-    """, (token,))
+    conexion = None
+    cursor = None
 
-    venta = cursor.fetchone()
-    conexion.close()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    if not venta:
-        return "TICKET NO VÁLIDO", 404
+        cursor.execute("""
+            SELECT v.idventa, 
+                   v.fecha_hora, 
+                   v.total, 
+                   v.estado_ticket,
+                   j.nombre AS jornada,
+                   p.nombre AS caja
+            FROM ventas v
+            JOIN jornadas j ON v.idjornada = j.idjornada
+            JOIN puntos_venta p ON v.idpunto = p.idpunto
+            WHERE v.qr_token = %s
+        """, (token,))
 
-    return render_template("validar_ticket.html", venta=venta)
+        venta = cursor.fetchone()
+
+        if not venta:
+            return "TICKET NO VÁLIDO", 404
+
+        return render_template(
+            "validar_ticket.html",
+            venta=venta
+        )
+
+    except Exception as e:
+        print("❌ Error al validar ticket:", e)
+        return "Error interno al validar ticket", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 #-----------------------------REPORTES-----------------------------------
 @app.route("/admin/dashboard")
@@ -2081,123 +2648,133 @@ def admin_dashboard():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    # ======================
-    # JORNADA ACTIVA
-    # ======================
-    cursor.execute("""
-        SELECT idjornada, nombre
-        FROM jornadas
-        WHERE estado = 'Activo'
-        ORDER BY idjornada DESC
-        LIMIT 1
-    """)
-    jornada_activa = cursor.fetchone()
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    id_jornada = jornada_activa["idjornada"] if jornada_activa else None
-
-    # ======================
-    # TOTAL VENDIDO
-    # ======================
-    if id_jornada:
+        # ======================
+        # JORNADA ACTIVA
+        # ======================
         cursor.execute("""
-            SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
-            FROM ventas v
-            JOIN ventas_detalle d ON d.idventa = v.idventa
-            WHERE v.idjornada = %s
-        """, (id_jornada,))
-    else:
-        cursor.execute("""
-            SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
-            FROM ventas_detalle d
-        """)
-
-    total_ventas = cursor.fetchone()["total_ventas"]
-
-    # ======================
-    # TOTAL DE TICKETS
-    # ======================
-    if id_jornada:
-        cursor.execute("""
-            SELECT COUNT(*) AS total_tickets
-            FROM ventas
-            WHERE idjornada = %s
-        """, (id_jornada,))
-    else:
-        cursor.execute("""
-            SELECT COUNT(*) AS total_tickets
-            FROM ventas
-        """)
-
-    total_tickets = cursor.fetchone()["total_tickets"]
-
-    # ======================
-    # BEBIDA MÁS VENDIDA
-    # ======================
-    if id_jornada:
-        cursor.execute("""
-            SELECT p.nombre, SUM(d.cantidad) AS total
-            FROM ventas_detalle d
-            JOIN productos p ON p.idproductos = d.idproductos
-            JOIN ventas v ON v.idventa = d.idventa
-            WHERE v.idjornada = %s
-            GROUP BY p.nombre
-            ORDER BY total DESC
-            LIMIT 1
-        """, (id_jornada,))
-    else:
-        cursor.execute("""
-            SELECT p.nombre, SUM(d.cantidad) AS total
-            FROM ventas_detalle d
-            JOIN productos p ON p.idproductos = d.idproductos
-            GROUP BY p.nombre
-            ORDER BY total DESC
+            SELECT idjornada, nombre
+            FROM jornadas
+            WHERE estado = 'Activo'
+            ORDER BY idjornada DESC
             LIMIT 1
         """)
+        jornada_activa = cursor.fetchone()
 
-    bebida_top = cursor.fetchone()
+        id_jornada = jornada_activa["idjornada"] if jornada_activa else None
 
-    # ======================
-    # CAJA CON MÁS VENTAS
-    # ======================
-    if id_jornada:
-        cursor.execute("""
-            SELECT c.nombre, SUM(d.subtotal) AS total
-            FROM ventas v
-            JOIN ventas_detalle d ON d.idventa = v.idventa
-            JOIN puntos_venta c ON c.idpunto = v.idpunto
-            WHERE v.idjornada = %s
-            GROUP BY c.nombre
-            ORDER BY total DESC
-            LIMIT 1
-        """, (id_jornada,))
-    else:
-        cursor.execute("""
-            SELECT c.nombre, SUM(d.subtotal) AS total
-            FROM ventas v
-            JOIN ventas_detalle d ON d.idventa = v.idventa
-            JOIN puntos_venta c ON c.idpunto = v.idpunto
-            GROUP BY c.nombre
-            ORDER BY total DESC
-            LIMIT 1
-        """)
+        # ======================
+        # TOTAL VENDIDO
+        # ======================
+        if id_jornada:
+            cursor.execute("""
+                SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
+                FROM ventas v
+                JOIN ventas_detalle d ON d.idventa = v.idventa
+                WHERE v.idjornada = %s
+            """, (id_jornada,))
+        else:
+            cursor.execute("""
+                SELECT COALESCE(SUM(d.subtotal),0) AS total_ventas
+                FROM ventas_detalle d
+            """)
 
-    caja_top = cursor.fetchone()
+        total_ventas = cursor.fetchone()["total_ventas"]
 
-    conexion.close()
+        # ======================
+        # TOTAL DE TICKETS
+        # ======================
+        if id_jornada:
+            cursor.execute("""
+                SELECT COUNT(*) AS total_tickets
+                FROM ventas
+                WHERE idjornada = %s
+            """, (id_jornada,))
+        else:
+            cursor.execute("""
+                SELECT COUNT(*) AS total_tickets
+                FROM ventas
+            """)
 
-    return render_template(
-        "admin_dashboard.html",
-        total_ventas=total_ventas,
-        total_tickets=total_tickets,
-        bebida_top=bebida_top,
-        caja_top=caja_top,
-        jornada_activa=jornada_activa
-    )
+        total_tickets = cursor.fetchone()["total_tickets"]
 
+        # ======================
+        # BEBIDA MÁS VENDIDA
+        # ======================
+        if id_jornada:
+            cursor.execute("""
+                SELECT p.nombre, SUM(d.cantidad) AS total
+                FROM ventas_detalle d
+                JOIN productos p ON p.idproductos = d.idproductos
+                JOIN ventas v ON v.idventa = d.idventa
+                WHERE v.idjornada = %s
+                GROUP BY p.nombre
+                ORDER BY total DESC
+                LIMIT 1
+            """, (id_jornada,))
+        else:
+            cursor.execute("""
+                SELECT p.nombre, SUM(d.cantidad) AS total
+                FROM ventas_detalle d
+                JOIN productos p ON p.idproductos = d.idproductos
+                GROUP BY p.nombre
+                ORDER BY total DESC
+                LIMIT 1
+            """)
 
+        bebida_top = cursor.fetchone()
+
+        # ======================
+        # CAJA CON MÁS VENTAS
+        # ======================
+        if id_jornada:
+            cursor.execute("""
+                SELECT c.nombre, SUM(d.subtotal) AS total
+                FROM ventas v
+                JOIN ventas_detalle d ON d.idventa = v.idventa
+                JOIN puntos_venta c ON c.idpunto = v.idpunto
+                WHERE v.idjornada = %s
+                GROUP BY c.nombre
+                ORDER BY total DESC
+                LIMIT 1
+            """, (id_jornada,))
+        else:
+            cursor.execute("""
+                SELECT c.nombre, SUM(d.subtotal) AS total
+                FROM ventas v
+                JOIN ventas_detalle d ON d.idventa = v.idventa
+                JOIN puntos_venta c ON c.idpunto = v.idpunto
+                GROUP BY c.nombre
+                ORDER BY total DESC
+                LIMIT 1
+            """)
+
+        caja_top = cursor.fetchone()
+
+        return render_template(
+            "admin_dashboard.html",
+            total_ventas=total_ventas,
+            total_tickets=total_tickets,
+            bebida_top=bebida_top,
+            caja_top=caja_top,
+            jornada_activa=jornada_activa
+        )
+
+    except Exception as e:
+        print("❌ Error en admin_dashboard:", e)
+        return "Error interno al cargar el dashboard", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 @app.route("/admin/reportes", methods=["GET", "POST"])
@@ -2205,87 +2782,109 @@ def admin_reportes():
     if "id" not in session:
         return redirect(url_for("home"))
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    conexion = None
+    cursor = None
 
-    idjornada = request.form.get("idjornada")
-    idcaja = request.form.get("idcaja")
-    idproducto = request.form.get("idproducto")
-    desde = request.form.get("desde")
-    hasta = request.form.get("hasta")
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    condiciones = []
-    valores = []
+        idjornada = request.form.get("idjornada")
+        idcaja = request.form.get("idcaja")
+        idproducto = request.form.get("idproducto")
+        desde = request.form.get("desde")
+        hasta = request.form.get("hasta")
 
-    if idjornada:
-        condiciones.append("v.idjornada = %s")
-        valores.append(idjornada)
+        condiciones = []
+        valores = []
 
-    if idcaja:
-        condiciones.append("v.idpunto = %s")
-        valores.append(idcaja)
+        if idjornada:
+            condiciones.append("v.idjornada = %s")
+            valores.append(idjornada)
 
-    if idproducto:
-        condiciones.append("d.idproductos = %s")
-        valores.append(idproducto)
+        if idcaja:
+            condiciones.append("v.idpunto = %s")
+            valores.append(idcaja)
 
-    if desde and hasta:
-        condiciones.append("DATE(v.fecha_hora) BETWEEN %s AND %s")
-        valores.extend([desde, hasta])
+        if idproducto:
+            condiciones.append("d.idproductos = %s")
+            valores.append(idproducto)
 
-    where_sql = ""
-    if condiciones:
-        where_sql = "WHERE " + " AND ".join(condiciones)
+        if desde and hasta:
+            condiciones.append("DATE(v.fecha_hora) BETWEEN %s AND %s")
+            valores.extend([desde, hasta])
 
-    query = f"""
-        SELECT v.fecha_hora,
-               j.nombre AS jornada,
-               pto.nombre AS caja,
-               pr.nombre AS producto,
-               d.cantidad,
-               d.subtotal
-        FROM ventas v
-        JOIN jornadas j ON j.idjornada = v.idjornada
-        JOIN puntos_venta pto ON pto.idpunto = v.idpunto
-        JOIN ventas_detalle d ON d.idventa = v.idventa
-        JOIN productos pr ON pr.idproductos = d.idproductos
-        {where_sql}
-        ORDER BY v.fecha_hora DESC
-    """
+        where_sql = ""
+        if condiciones:
+            where_sql = "WHERE " + " AND ".join(condiciones)
 
-    cursor.execute(query, valores)
-    ventas = cursor.fetchall()
+        query = f"""
+            SELECT v.fecha_hora,
+                   j.nombre AS jornada,
+                   pto.nombre AS caja,
+                   pr.nombre AS producto,
+                   d.cantidad,
+                   d.subtotal
+            FROM ventas v
+            JOIN jornadas j ON j.idjornada = v.idjornada
+            JOIN puntos_venta pto ON pto.idpunto = v.idpunto
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            JOIN productos pr ON pr.idproductos = d.idproductos
+            {where_sql}
+            ORDER BY v.fecha_hora DESC
+        """
 
-    total_general = sum(v["subtotal"] for v in ventas)
+        cursor.execute(query, valores)
+        ventas = cursor.fetchall()
 
-    jornada_nombre = "Todas"
-    if idjornada:
-        cursor.execute("SELECT nombre FROM jornadas WHERE idjornada = %s", (idjornada,))
-        j = cursor.fetchone()
-        if j:
-            jornada_nombre = j["nombre"]
+        total_general = sum(v["subtotal"] for v in ventas)
 
-    cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
-    jornadas = cursor.fetchall()
+        jornada_nombre = "Todas"
+        if idjornada:
+            cursor.execute(
+                "SELECT nombre FROM jornadas WHERE idjornada = %s",
+                (idjornada,)
+            )
+            j = cursor.fetchone()
+            if j:
+                jornada_nombre = j["nombre"]
 
-    cursor.execute("SELECT idpunto, nombre FROM puntos_venta")
-    cajas = cursor.fetchall()
+        cursor.execute(
+            "SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC"
+        )
+        jornadas = cursor.fetchall()
 
-    cursor.execute("SELECT idproductos, nombre FROM productos")
-    productos = cursor.fetchall()
+        cursor.execute(
+            "SELECT idpunto, nombre FROM puntos_venta"
+        )
+        cajas = cursor.fetchall()
 
-    conexion.close()
+        cursor.execute(
+            "SELECT idproductos, nombre FROM productos"
+        )
+        productos = cursor.fetchall()
 
-    return render_template(
-        "admin_reportes.html",
-        ventas=ventas,
-        jornadas=jornadas,
-        cajas=cajas,
-        productos=productos,
-        total_general=total_general,
-        jornada_nombre=jornada_nombre,
-        fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M")
-    )
+        return render_template(
+            "admin_reportes.html",
+            ventas=ventas,
+            jornadas=jornadas,
+            cajas=cajas,
+            productos=productos,
+            total_general=total_general,
+            jornada_nombre=jornada_nombre,
+            fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M")
+        )
+
+    except Exception as e:
+        print("❌ Error en admin_reportes:", e)
+        return "Error interno al generar el reporte", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
 
 
 
@@ -2318,75 +2917,89 @@ def grafico():
 
 @app.route("/reporte")
 def reporte_cajas():
+    if "id" not in session:
+        return redirect(url_for("home"))
 
-    idjornada = request.args.get("idjornada")
+    conexion = None
+    cursor = None
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-    # ======================
-    # JORNADA
-    # ======================
-    if not idjornada:
+        idjornada = request.args.get("idjornada")
+
+        # ======================
+        # JORNADA
+        # ======================
+        if not idjornada:
+            cursor.execute("""
+                SELECT idjornada, nombre
+                FROM jornadas
+                ORDER BY idjornada DESC
+                LIMIT 1
+            """)
+            jornada = cursor.fetchone()
+            idjornada = jornada["idjornada"]
+        else:
+            cursor.execute("""
+                SELECT idjornada, nombre
+                FROM jornadas
+                WHERE idjornada = %s
+            """, (idjornada,))
+            jornada = cursor.fetchone()
+
+        # ======================
+        # RECAUDACIÓN REAL
+        # ======================
         cursor.execute("""
-            SELECT idjornada, nombre
-            FROM jornadas
-            ORDER BY idjornada DESC
-            LIMIT 1
-        """)
-        jornada = cursor.fetchone()
-        idjornada = jornada["idjornada"]
-    else:
-        cursor.execute("""
-            SELECT idjornada, nombre
-            FROM jornadas
-            WHERE idjornada = %s
+            SELECT 
+                p.nombre AS punto,
+                COALESCE(SUM(d.subtotal),0) AS total
+            FROM ventas v
+            JOIN ventas_detalle d ON d.idventa = v.idventa
+            JOIN puntos_venta p ON p.idpunto = v.idpunto
+            WHERE v.idjornada = %s
+            -- AND v.estado = 'OK'
+            GROUP BY p.nombre
+            ORDER BY p.nombre
         """, (idjornada,))
-        jornada = cursor.fetchone()
 
-    # ======================
-    # RECAUDACIÓN REAL
-    # ======================
-    cursor.execute("""
-        SELECT 
-            p.nombre AS punto,
-            COALESCE(SUM(d.subtotal),0) AS total
-        FROM ventas v
-        JOIN ventas_detalle d ON d.idventa = v.idventa
-        JOIN puntos_venta p ON p.idpunto = v.idpunto
-        WHERE v.idjornada = %s
-        -- AND v.estado = 'OK'
-        GROUP BY p.nombre
-        ORDER BY p.nombre
-    """, (idjornada,))
+        cajas = cursor.fetchall()
+        total_general = sum(c["total"] for c in cajas)
 
-    cajas = cursor.fetchall()
-    total_general = sum(c["total"] for c in cajas)
+        cursor.execute("""
+            SELECT idjornada, nombre 
+            FROM jornadas 
+            ORDER BY idjornada DESC
+        """)
+        jornadas = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT idjornada, nombre 
-        FROM jornadas 
-        ORDER BY idjornada DESC
-    """)
-    jornadas = cursor.fetchall()
+        return render_template(
+            "reportes_cajas.html",
+            jornadas=jornadas,
+            jornada_nombre=jornada["nombre"],
+            jornada_id=idjornada,
+            fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M"),
+            cajas=cajas,
+            total_general=total_general
+        )
 
-    conexion.close()
+    except Exception as e:
+        print("❌ Error en reporte_cajas:", e)
+        return "Error interno al generar el reporte", 500
 
-    return render_template(
-        "reportes_cajas.html",
-        jornadas=jornadas,
-        jornada_nombre=jornada["nombre"],
-        jornada_id=idjornada,
-        fecha_hora=datetime.now().strftime("%d/%m/%Y %H:%M"),
-        cajas=cajas,
-        total_general=total_general
-    )
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 #--------------------------- Sectores Boleteria --------------------------------
 # ===============================
 # SECTORES ENTRADAS
 # ===============================
-
+###################################### esta hasta aca sigue la linea de abajo
 @app.route("/sectores_entradas")
 def home_sectores_entradas():
     if "id" not in session:
