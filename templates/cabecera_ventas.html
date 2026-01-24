@@ -22,11 +22,13 @@
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
     <!-- Usuario / Rol / Reloj -->
-    <div class="fw-semibold">
-        👤 {{ usuario }}
-        <span class="opacity-75">({{ rol }})</span>
-        <span class="ms-3" id="reloj"></span>
-    </div>
+   <div class="fw-semibold">
+    👤 {{ session['nombre'] }}
+    <span class="opacity-75">({{ session['operador'] }})</span>
+    <span class="ms-3" id="reloj"></span>
+</div>
+
+
 
     <div id="estadoCaja"
             class="badge bg-secondary ms-2">

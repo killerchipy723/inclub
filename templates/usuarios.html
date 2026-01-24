@@ -1,55 +1,61 @@
 {% include '/cabecera.html' %}
 
-
 <div class="container mt-4">
   <div class="card shadow">
     <div class="card-body">
 
-      <!-- FORMULARIO -->
-      <form action="/reg_Usu" method="post">
-        <div class="row mb-3">
-          <div class="col">
-            <label>Nombre</label>
-            <input type="text" name="nombre" class="form-control text-uppercase" required>
-          </div>
+      <!-- FORMULARIO REGISTRO -->
+      <form action="/reg_Usu" method="post" autocomplete="off">
+  <div class="row mb-3">
+    <div class="col">
+      <label>Nombre</label>
+      <input type="text" name="nombre" class="form-control text-uppercase" required autofocus autocomplete="off">
+    </div>
 
-          <div class="col">
-            <label>Contraseña</label>
-            <input type="password" name="clave" class="form-control" required>
-          </div>
+    <div class="col">
+      <label>Contraseña</label>
+      <input type="password" name="clave" class="form-control" required autocomplete="new-password">
+    </div>
 
-          <div class="col">
-            <label>Rol de Usuario</label>
-            <select name="rol" class="form-control" required>
-              <option disabled selected value="">Seleccione rol</option>
-              <option value="Vendedor">Vendedor</option>
-              <option value="Administrador">Administrador</option>
-              <option value="Boleteria">Boleteria</option>
-              <option value="Otro">Otro/a</option>
-            </select>
-          </div>
+    <div class="col">
+      <label>Rol de Usuario</label>
+      <select name="rol" class="form-control" required>
+        <option disabled selected value="">Seleccione rol</option>
+        <option value="Vendedor">Vendedor</option>
+        <option value="Administrador">Administrador</option>
+        <option value="Boleteria">Boleteria</option>
+        <option value="Otro/a">Otro/a</option>
+      </select>
+    </div>
 
-          <div class="col">
-            <label>Estado</label>
-            <select name="estado" class="form-control" required>
-              <option disabled selected value="">Seleccione estado</option>
-              <option value="Activo">Activo</option>
-              <option value="Inactivo">Inactivo</option>
-            </select>
-          </div>
-          
-          <div class="col d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Registrar</button>
-          </div>
-        </div>
-       
-      </form>
+    <div class="col">
+      <label>Estado</label>
+      <select name="estado" class="form-control" required>
+        <option disabled selected value="">Seleccione estado</option>
+        <option value="Activo">Activo</option>
+        <option value="Inactivo">Inactivo</option>
+      </select>
+    </div>
+
+    <div class="col">
+      <label>Operador/a</label>
+      <input type="text" name="operador" class="form-control text-uppercase" autocomplete="off">
+    </div>
+
+    <div class="col d-flex align-items-end">
+      <button class="btn btn-primary w-100" type="submit">Registrar</button>
+    </div>
+  </div>
+</form>
+
+
       {% for msg in alert %}
        <div class="alert alert-primary" role="alert">
-          {{msg[0]}}
-        </div>
-      {% endfor%}
-      <!-- TABLA -->
+          {{ msg[0] }}
+       </div>
+      {% endfor %}
+
+      <!-- TABLA USUARIOS -->
       <table class="table table-bordered table-striped bg-light text-dark mt-4">
         <thead class="table-dark">
           <tr>
@@ -58,6 +64,7 @@
             <th>CLAVE</th>
             <th>PRIVILEGIO</th>
             <th>ESTADO</th>
+            <th>OPERADOR</th>
             <th>ACCIONES</th>
           </tr>
         </thead>
@@ -65,12 +72,12 @@
         <tbody>
           {% for alu in usuarios %}
           <tr>
-          <td>{{ alu.idusuarios }}</td>
-          <td>{{ alu.nombre }}</td>
-          <td>{{ alu.clave }}</td>
-          <td>{{ alu.rol }}</td>
-          <td>{{ alu.estado }}</td>
-
+            <td>{{ alu.idusuarios }}</td>
+            <td>{{ alu.nombre }}</td>
+            <td>{{ alu.clave }}</td>
+            <td>{{ alu.rol }}</td>
+            <td>{{ alu.estado }}</td>
+            <td>{{ alu.operador }}</td>
             <td>
               <button class="btn btn-warning btn-sm"
                       data-bs-toggle="modal"
@@ -93,7 +100,7 @@
   </div>
 </div>
 
-<!-- MODALES (FUERA DE LA TABLA) -->
+<!-- MODALES (EDICIÓN Y ELIMINACIÓN) -->
 {% for alu in usuarios %}
 
 <!-- MODAL EDITAR -->
@@ -117,15 +124,18 @@
           <select name="rol" class="form-control mb-2" required>
             <option value="Vendedor" {% if alu.rol=='Vendedor' %}selected{% endif %}>Vendedor</option>
             <option value="Administrador" {% if alu.rol=='Administrador' %}selected{% endif %}>Administrador</option>
-             <option value="Boleteria" {% if alu.rol=='Boleteria' %}selected{% endif %}>Boleteria</option>
+            <option value="Boleteria" {% if alu.rol=='Boleteria' %}selected{% endif %}>Boleteria</option>
             <option value="Otro" {% if alu.rol=='Otro' %}selected{% endif %}>Otro</option>
           </select>
 
           <label>Estado</label>
-          <select name="estado" class="form-control" required>
-            <option value="Activo" {% if alu.rdtado=='Activo' %}selected{% endif %}>Activo</option>
+          <select name="estado" class="form-control mb-2" required>
+            <option value="Activo" {% if alu.estado=='Activo' %}selected{% endif %}>Activo</option>
             <option value="Inactivo" {% if alu.estado=='Inactivo' %}selected{% endif %}>Inactivo</option>
           </select>
+
+          <label>Operador</label>
+          <input type="text" name="operador" class="form-control mb-2 text-uppercase" value="{{ alu.operador }}" required>
         </div>
 
         <div class="modal-footer">
@@ -187,6 +197,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
-
 
 {% include '/pie.html' %}

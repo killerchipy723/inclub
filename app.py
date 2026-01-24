@@ -22,7 +22,6 @@ def home():
 # VALIDACION DE LOGIN
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
     if request.method == "GET":
         return render_template("login.html")
 
@@ -37,9 +36,11 @@ def login():
     cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
     try:
+        # ======================
         # 1️⃣ VALIDAR USUARIO
+        # ======================
         cursor.execute("""
-            SELECT idusuarios, nombre, rol, estado
+            SELECT idusuarios, nombre, rol, estado, operador
             FROM usuarios
             WHERE nombre = %s
               AND clave  = %s
@@ -53,18 +54,23 @@ def login():
         if user["estado"] != "Activo":
             return render_template("login.html", error="Usuario inactivo")
 
-        # 🟢 ADMIN
+        # ======================
+        # ADMIN
+        # ======================
         if user["rol"] == "Administrador":
             session.clear()
             session.update({
                 "id": user["idusuarios"],
                 "nombre": user["nombre"],
                 "rol": user["rol"],
-                "equipo": equipo
+                "equipo": equipo,
+                "operador": user["operador"]   # <-- operador agregado
             })
             return redirect(url_for("admin"))
 
-        # 2️⃣ VALIDAR PUNTO
+        # ======================
+        # 2️⃣ VALIDAR PUNTO DE VENTA
+        # ======================
         cursor.execute("""
             SELECT idpunto, nombre
             FROM puntos_venta
@@ -73,14 +79,15 @@ def login():
         """, (equipo,))
 
         punto = cursor.fetchone()
-
         if not punto:
             return render_template(
                 "login.html",
                 error="Este equipo no está habilitado como punto de venta"
             )
 
+        # ======================
         # 3️⃣ VALIDAR USUARIO ↔ PUNTO
+        # ======================
         cursor.execute("""
             SELECT 1
             FROM usuarios_puntos
@@ -95,7 +102,9 @@ def login():
                 error="Usuario no autorizado para este punto de venta"
             )
 
+        # ======================
         # 4️⃣ SESIÓN
+        # ======================
         session.clear()
         session.update({
             "id": user["idusuarios"],
@@ -103,10 +112,13 @@ def login():
             "rol": user["rol"],
             "idpunto": punto["idpunto"],
             "punto": punto["nombre"],
-            "equipo": equipo
+            "equipo": equipo,
+            "operador": user["operador"]   # <-- operador agregado
         })
 
-        # 5️⃣ VALIDAR CAJA
+        # ======================
+        # 5️⃣ VALIDAR CAJA ABIERTA
+        # ======================
         idjornada = session.get("idjornada")
         if idjornada:
             cursor.execute("""
@@ -124,10 +136,11 @@ def login():
                     error="❌ La caja ya fue cerrada. No puede volver a operar."
                 )
 
-        # 6️⃣ REDIRECCIÓN
+        # ======================
+        # 6️⃣ REDIRECCIÓN SEGÚN ROL
+        # ======================
         if user["rol"] == "Vendedor":
             return redirect(url_for("ventas_home"))
-
         if user["rol"] == "Boleteria":
             return redirect(url_for("boleteria_home"))
 
@@ -136,6 +149,7 @@ def login():
     finally:
         cursor.close()
         conexion.close()
+
 
 # =======================
 # LOGOUT
@@ -202,6 +216,7 @@ def reg_usuario():
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
+    operador = request.form["operador"].upper()
 
     conexion = None
     cursor = None
@@ -212,10 +227,10 @@ def reg_usuario():
 
         cursor.execute(
             """
-            INSERT INTO usuarios (nombre, clave, rol, estado)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO usuarios (nombre, clave, rol, estado,operador)
+            VALUES (%s, %s, %s, %s,%s)
             """,
-            (nombre, clave, rol, estado)
+            (nombre, clave, rol, estado,operador)
         )
 
         conexion.commit()
@@ -278,6 +293,7 @@ def update_usuario(id):
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
+    operador = request.form["operador"].upper()
 
     conexion = None
     cursor = None
@@ -288,9 +304,9 @@ def update_usuario(id):
 
         cursor.execute("""
             UPDATE usuarios
-            SET nombre=%s, clave=%s, rol=%s, estado=%s
+            SET nombre=%s, clave=%s, rol=%s, estado=%s,operador=%s
             WHERE idusuarios=%s
-        """, (nombre, clave, rol, estado, id))
+        """, (nombre, clave, rol, estado,operador, id))
 
         conexion.commit()
 
