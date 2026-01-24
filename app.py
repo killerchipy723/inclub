@@ -1180,10 +1180,6 @@ def ventas_home():
 #Registrar Venta
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
-
-    # ======================
-    # 🔒 VERIFICAR SESIÓN
-    # ======================
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -1196,41 +1192,26 @@ def registrar_venta():
     cursor = None
 
     try:
-        # ======================
-        # 🔗 CONEXIÓN BD
-        # ======================
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ======================
-        # 🔒 VALIDAR CAJA ABIERTA
-        # ======================
+        # Validar caja abierta
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
             WHERE idjornada = %s AND idpunto = %s
         """, (idjornada, idpunto))
-
         jp = cursor.fetchone()
         if not jp or jp["estado"] != "Abierto":
-            return jsonify({
-                "success": False,
-                "error": "La caja está cerrada"
-            }), 403
+            return jsonify({"success": False, "error": "La caja está cerrada"}), 403
 
-        # ======================
-        # 🔢 TOTAL
-        # ======================
-        total_str = request.form.get("total", "0")
-        total_str = total_str.replace(".", "").replace(",", ".")
+        # Total venta
+        total_str = request.form.get("total", "0").replace(".", "").replace(",", ".")
         total = float(total_str)
 
-        # ======================
-        # 💳 PAGOS (MULTIPLES)
-        # ======================
+        # Construir lista de pagos
         pagos_modo    = request.form.getlist("pagos[idmodopago][]")
         pagos_importe = request.form.getlist("pagos[importe][]")
-
         pagos = []
 
         for i in range(len(pagos_modo)):
@@ -1239,46 +1220,28 @@ def registrar_venta():
                 "importe": float(pagos_importe[i])
             })
 
-        # ======================
-        # 🔙 COMPATIBILIDAD PAGO SIMPLE
-        # ======================
+        # Compatibilidad pago simple
         if not pagos:
-            idmodopago = request.form.get("modopago")
-            pagos = [{
-                "idmodopago": int(idmodopago),
-                "importe": total
-            }]
+            idmodopago_form = request.form.get("modopago")
+            pagos = [{"idmodopago": int(idmodopago_form), "importe": total}]
+
+        # Determinar idmodopago para la tabla ventas
+        if len(pagos) == 1:
+            idmodopago = pagos[0]["idmodopago"]
         else:
-            # ======================
-            # 🔄 MODO MIXTO
-            # ======================
-            cursor.execute("""
-                SELECT idmodopago
-                FROM modopago
-                WHERE modo = 'MIXTO'
-                LIMIT 1
-            """)
+            cursor.execute("SELECT idmodopago FROM modopago WHERE modo='MIXTO' LIMIT 1")
             row = cursor.fetchone()
             if not row:
                 raise Exception("No existe el modo de pago MIXTO")
-
             idmodopago = row["idmodopago"]
 
-        # ======================
-        # 🔎 VALIDAR SUMA PAGOS
-        # ======================
+        # Validar suma pagos
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
         if round(total, 2) != suma_pagos:
-            return jsonify({
-                "success": False,
-                "error": "La suma de los pagos no coincide con el total"
-            }), 400
+            return jsonify({"success": False, "error": "La suma de los pagos no coincide con el total"}), 400
 
-        # ======================
-        # 🧾 INSERT VENTA
-        # ======================
+        # Insertar venta
         qr_token = uuid.uuid4().hex
-
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
@@ -1294,26 +1257,17 @@ def registrar_venta():
             total,
             qr_token
         ))
-
         idventa = cursor.lastrowid
 
-        # ======================
-        # 💳 INSERT PAGOS
-        # ======================
+        # Insertar pagos
         for p in pagos:
             cursor.execute("""
                 INSERT INTO ventas_pagos
                 (idventa, idmodopago, importe)
                 VALUES (%s,%s,%s)
-            """, (
-                idventa,
-                p["idmodopago"],
-                p["importe"]
-            ))
+            """, (idventa, p["idmodopago"], p["importe"]))
 
-        # ======================
-        # 📦 DETALLE DE VENTA
-        # ======================
+        # Insertar detalle de productos
         productos   = request.form.getlist("productos[]")
         cantidades  = request.form.getlist("cantidades[]")
         precios     = request.form.getlist("precios[]")
@@ -1321,14 +1275,11 @@ def registrar_venta():
         autorizados = request.form.getlist("autorizados[]")
 
         total_puntos = 0
-
         for i in range(len(productos)):
             cantidad = int(cantidades[i])
             precio   = float(precios[i])
-
             es_cortesia = i < len(cortesias) and cortesias[i] == "1"
             autorizado  = autorizados[i] if i < len(autorizados) else ""
-
             subtotal = 0 if es_cortesia else cantidad * precio
 
             cursor.execute("""
@@ -1336,46 +1287,23 @@ def registrar_venta():
                 (idventa, idproductos, cantidad, precio_unitario,
                  subtotal, cortesia, autorizado)
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                idventa,
-                productos[i],
-                cantidad,
-                precio,
-                subtotal,
-                es_cortesia,
-                autorizado
-            ))
+            """, (idventa, productos[i], cantidad, precio, subtotal, es_cortesia, autorizado))
 
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
-        # ======================
-        # 🎯 ACTUALIZAR PUNTOS
-        # ======================
-        cursor.execute("""
-            UPDATE ventas
-            SET puntos_ganados = %s
-            WHERE idventa = %s
-        """, (total_puntos, idventa))
+        # Actualizar puntos ganados
+        cursor.execute("UPDATE ventas SET puntos_ganados = %s WHERE idventa = %s",
+                       (total_puntos, idventa))
 
-        # ======================
-        # 💾 COMMIT
-        # ======================
         conexion.commit()
-
-        return jsonify({
-            "success": True,
-            "idventa": idventa
-        })
+        return jsonify({"success": True, "idventa": idventa})
 
     except Exception as e:
         if conexion:
             conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
     finally:
         if cursor:
@@ -2809,76 +2737,45 @@ def delete_Modopago(id):
 #Ticket de venta 
 @app.route("/ticket/<int:idventa>")
 def ticket(idventa):
+
     conexion = None
     cursor = None
 
     try:
-        # ======================
-        # CONEXIÓN
-        # ======================
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ======================
-        # DATOS DE LA VENTA
-        # ======================
+        # Datos de la venta
         cursor.execute("""
-            SELECT 
-                v.idventa,
-                v.fecha_hora,
-                v.total,
-                IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
-                j.nombre AS jornada
+            SELECT v.idventa, v.fecha_hora, v.total,
+                   IFNULL(c.apenomb,'Consumidor Final') AS cliente,
+                   j.nombre AS jornada
             FROM ventas v
             LEFT JOIN clientes c ON c.idclientes = v.idclientes
             JOIN jornadas j ON j.idjornada = v.idjornada
             WHERE v.idventa = %s
         """, (idventa,))
         venta = cursor.fetchone()
-
         if not venta:
             return "Venta no encontrada", 404
 
-        # ======================
-        # DETALLE DE PRODUCTOS
-        # ======================
+        # Detalle de productos
         cursor.execute("""
-            SELECT 
-                d.iddetalle,
-                p.nombre AS producto,
-                d.cantidad,
-                d.subtotal
+            SELECT p.nombre AS producto, d.cantidad, d.subtotal
             FROM ventas_detalle d
             JOIN productos p ON p.idproductos = d.idproductos
             WHERE d.idventa = %s
         """, (idventa,))
         detalle = cursor.fetchall()
 
-        # ======================
-        # OBTENER TODOS LOS PAGOS
-        # ======================
-        # Siempre buscamos los pagos individuales de ventas_pagos
+        # Detalle de pagos
         cursor.execute("""
-            SELECT 
-                mp.modo,
-                vp.importe
+            SELECT mp.modo, vp.importe
             FROM ventas_pagos vp
             JOIN modopago mp ON mp.idmodopago = vp.idmodopago
             WHERE vp.idventa = %s
         """, (idventa,))
         pagos = cursor.fetchall()
-
-        # Si no existen pagos en ventas_pagos → es un pago simple
-        if not pagos:
-            cursor.execute("""
-                SELECT 
-                    mp.modo,
-                    v.total AS importe
-                FROM ventas v
-                JOIN modopago mp ON mp.idmodopago = v.idmodopago
-                WHERE v.idventa = %s
-            """, (idventa,))
-            pagos = cursor.fetchall()
 
     except Exception as e:
         print("❌ Error al generar ticket:", e)
@@ -2890,23 +2787,13 @@ def ticket(idventa):
         if conexion:
             conexion.close()
 
-    # ======================
-    # GENERAR QR
-    # ======================
-    qr_texto = (
-        f"TICKETJETS\n"
-        f"Venta: {venta['idventa']}\n"
-        f"Total: ${venta['total']}\n"
-        f"Fecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
-    )
+    # Generar QR
+    qr_texto = f"TICKETJETS\nVenta: {venta['idventa']}\nTotal: ${venta['total']}\nFecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
     qr = qrcode.make(qr_texto)
     buffer = BytesIO()
     qr.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    # ======================
-    # RENDER TEMPLATE
-    # ======================
     return render_template(
         "ticket.html",
         idventa=venta["idventa"],
@@ -2915,9 +2802,10 @@ def ticket(idventa):
         cliente=venta["cliente"],
         jornada=venta["jornada"],
         detalle=detalle,
-        pagos=pagos,  # ← ya contiene todos los pagos individuales
+        pagos=pagos,
         qr_base64=qr_base64
     )
+
 
 
 
