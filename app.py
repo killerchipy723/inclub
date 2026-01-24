@@ -1980,7 +1980,104 @@ def jornadas_admin_detalle(idjornada):
         if conexion:
             conexion.close()
 
+#Administrar Cajas puntos de venta
+@app.route("/Cajas", methods=["GET"])
+def home_Cajas():
+    if "id" not in session:
+        return redirect(url_for("home"))
 
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        # Obtener la jornada activa más reciente
+        cursor.execute("""
+            SELECT idjornada
+            FROM jornadas
+            WHERE estado = 'Activo'
+            ORDER BY idjornada DESC
+            LIMIT 1
+        """)
+        jornada = cursor.fetchone()
+        if not jornada:
+            return "No hay jornada activa", 404
+
+        idjornada = jornada["idjornada"]
+
+        cursor.execute("""
+            SELECT jp.id,
+                   j.nombre,
+                   p.nombre AS punto_venta,
+                   jp.estado
+            FROM jornadas_puntos jp
+            JOIN jornadas j ON j.idjornada = jp.idjornada
+            JOIN puntos_venta p ON p.idpunto = jp.idpunto 
+            WHERE jp.idjornada = %s
+        """, (idjornada,))
+
+        data = cursor.fetchall()
+        message = request.args.get("message")
+
+        return render_template(
+            "cajas.html",
+            cajas=data,
+            message=message,
+            usuario=session["nombre"],
+            rol=session["rol"]
+        )
+
+    except Exception as e:
+        print("❌ Error en Cajas:", e)
+        return "Error interno en Cajas", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+#Ruta para Habilitar una caja ya cerrada
+@app.route("/habilitar_caja/<int:id>", methods=['POST'])
+def update_caja(id):
+    if "id" not in session:
+        return redirect(url_for("home"))
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor()
+
+        query = """
+            UPDATE jornadas_puntos
+            SET estado = 'Abierto'
+            WHERE id = %s
+        """
+        cursor.execute(query, (id,))
+        conexion.commit()
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("❌ Error al actualizar caja:", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    # Redirigir al listado de cajas, no a la actualización
+    return redirect(
+        url_for(
+            'home_Cajas',
+            message='Caja Habilitada Correctamente'
+        )
+    )
 
 # =====================================================
 # AGREGAR PUNTO DE VENTA A JORNADA
@@ -2669,14 +2766,17 @@ def ticket(idventa):
         # DETALLE DE PRODUCTOS
         # ======================
         cursor.execute("""
-            SELECT p.nombre AS producto,
-                   d.cantidad,
-                   d.precio_unitario AS importe,
-                   d.subtotal,
-                   d.cortesia
+            SELECT 
+                d.iddetalle,
+                p.nombre AS producto,
+                d.cantidad,
+                d.subtotal,
+                mp.modo
             FROM ventas_detalle d
             JOIN productos p ON p.idproductos = d.idproductos
-            WHERE d.idventa = %s
+            JOIN ventas v ON v.idventa = d.idventa
+            JOIN modopago mp ON mp.idmodopago = v.idmodopago
+            WHERE v.idventa = %s
         """, (idventa,))
 
         detalle = cursor.fetchall()

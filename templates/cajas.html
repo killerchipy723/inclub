@@ -1,0 +1,88 @@
+{% include '/cabecera.html' %}
+
+<div class="container mt-4">
+  <div class="card shadow">
+    <div class="card-body">
+
+      <!-- FORMULARIO -->
+      
+
+      {% if message %}
+      <div class="alert alert-primary">
+        {{ message }}
+      </div>
+      {% endif %}
+
+      <!-- TABLA -->
+      <table class="table table-bordered table-striped bg-light text-dark mt-4">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>            
+            <th>JORNADA</th>            
+            <th>CAJA</th>
+            <th>ESTADO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for c in cajas %}
+          <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.nombre }}</td>      
+            <td>{{ c.punto_venta }}</td> 
+            <td>{{ c.estado }}</td>         
+            <td>
+              <button class="btn btn-warning btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ c.id }}">
+                Habilitar
+              </button>
+              
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES EDITAR / ELIMINAR -->
+{% for c in cajas %}
+
+
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="modal{{ c.id }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Habilitar: {{ c.punto_venta }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        ¿Este punto de venta ya cerró caja, Estás Seguro que quieres habilitarla nuevamente ?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary"  data-bs-dismiss="modal">Cancelar</button>
+        <form action="/habilitar_caja/{{ c.id }}" method="POST" style="display:inline;">
+             <button type="submit" class="btn btn-success">Habilitar</button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endfor %}
+
+
+
+
+
+
+{% include '/pie.html' %}

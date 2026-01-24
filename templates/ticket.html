@@ -84,6 +84,11 @@ td {
     font-weight: bold;
     line-height: 1.4;
 }
+.modo {
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1.4;
+}
 </style>
 </head>
 
@@ -123,10 +128,11 @@ td {
     <td colspan="2" class="producto">{{ d.producto }}</td>
 </tr>
 <tr>
-    <td>{{ d.cantidad }} x</td>
+    <td>{{ d.cantidad }} X</td>
     <td class="right">$ {{ "%.2f"|format(d.subtotal) }}</td>
+    
 </tr>
-{% endfor %}
+
 </table>
 
 <hr>
@@ -138,6 +144,11 @@ td {
     TOTAL $ {{ "%.2f"|format(total) }}
 </div>
 
+<tr>
+    <td colspan="2" class="modo">Modo de Pago: {{ d.modo }}</td>
+</tr>
+
+{% endfor %}
 <hr>
 
 <!-- =========================
