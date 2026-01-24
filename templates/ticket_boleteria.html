@@ -6,25 +6,43 @@
 
 <style>
 @media print {
-    body { width: 76mm; margin: 0; }
+    body { 
+        width: 80mm; 
+        margin: 0; 
+    }
 }
 
 body {
     width: 76mm;
     font-family: monospace;
-    font-size: 10px;
+    font-size: 12px; /* ⬅️ TAMAÑO DE LETRA DEL TICKET (antes 10px).
+                        Ajustá este valor si lo necesitás más grande o más chico */
     margin: 0 auto;
 }
 
-.center { text-align: center; }
-.bold { font-weight: bold; }
-hr { border-top: 1px dashed #000; }
+.center { 
+    text-align: center; 
+}
+
+.bold { 
+    font-weight: bold; 
+}
+
+hr { 
+    border-top: 1px dashed #000; 
+}
+.evento-titulo {
+    font-size: 20px;   /* ⬅️ IDEAL PARA IMPRESORA 80mm */
+    line-height: 1.2;  /* Evita que se superpongan líneas */
+}
+
 </style>
 </head>
 
 <body onload="window.print()" onafterprint="window.close()">
 
-<div class="center bold">🎧 {{ evento }}</div>
+<div class="center bold evento-titulo">🎧 {{ evento }}</div>
+
 <div class="center">ENTRADA VÁLIDA SOLO PARA ESTA JORNADA</div>
 
 <hr>
@@ -32,6 +50,7 @@ hr { border-top: 1px dashed #000; }
 <div>Cliente: {{ cliente }}</div>
 <div>Sección: {{ seccion }}</div>
 <div>Fecha emisión: {{ fecha }}</div>
+<div><b>Operador:</b> {{ session['operador'] }}</div>
 
 <hr>
 
