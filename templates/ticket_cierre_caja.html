@@ -1,75 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <title>Cierre de Caja</title>
 
 <style>
-/* IMPRESIÓN EN 80MM TÉRMICA */
+/* ===== TICKET TÉRMICO 80MM ===== */
 @page { size: 80mm auto; margin: 0; }
-body { width: 80mm; margin:0; padding:0; font-family: monospace; font-size:12px; line-height:1.1; }
 
-.center { text-align:center; }
-.right  { text-align:right; }
-.bold   { font-weight:bold; }
-hr { border:none; border-top:1px dashed #000; margin:2px 0; }
+body {
+  width: 80mm;
+  margin: 0;
+  padding: 0;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.1;
+}
 
-/* Evitar cortes de página */
+.center { text-align: center; }
+.right  { text-align: right; }
+.bold   { font-weight: bold; }
+
+hr {
+  border: none;
+  border-top: 1px dashed #000;
+  margin: 4px 0;
+}
+
+/* Evitar cortes raros */
 @media print {
-  html, body { margin:0; padding:0; width:80mm; height:auto; }
-  table { page-break-inside:auto; }
-  tr    { page-break-inside:avoid; page-break-after:auto; }
-  td, th { page-break-inside:avoid; page-break-after:auto; }
+  html, body {
+    width: 80mm;
+    height: auto;
+    margin: 0;
+    padding: 0;
+  }
+  table, tr, td {
+    page-break-inside: avoid;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<!-- CABECERA -->
-<div class="center bold" style="font-size:16px; margin-bottom:2px;">TicketJets</div>
-<div class="center" style="margin-bottom:2px; font-size:14px;">
+<!-- ================= CABECERA ================= -->
+<div class="center bold" style="font-size:16px;">TicketJets</div>
+<div class="center" style="font-size:14px;">
   <strong>CIERRE DE CAJA</strong><br>
   {{ punto }}<br>
   Usuario: {{ usuario }}<br>
-  {{ fecha_impresion.strftime('%d/%m/%Y %H:%M') }}<br>
+  {{ fecha_impresion.strftime('%d/%m/%Y %H:%M') }}
 </div>
+
 <hr>
 
-<!-- DETALLE VENTAS EN TABLA -->
-<table style="width:100%; border-collapse:collapse; font-size:12px;">
-  {% if detalle %}
-    {% for d in detalle %}
+<!-- ================= RESUMEN POR PRODUCTO ================= -->
+<table style="width:100%; border-collapse:collapse;">
+  <tr class="bold">
+    <td>Producto</td>
+    <td class="right">Cant</td>
+    <td class="right">Subtotal</td>
+  </tr>
+
+  {% if productos %}
+    {% for p in productos %}
       <tr>
-        <td style="width:35%;">{{ d.fecha_hora }}</td>
-        <td style="width:35%;">{{ d.producto }}</td>
-        <td style="width:15%;">{{ d.pago }}</td>
-        <td style="width:15%;" class="right">
-          {% if d.cortesia %}
-            0.00 *
-          {% else %}
-            {{ "%.2f"|format(d.importe) }}
-          {% endif %}
-        </td>
+        <td>{{ p.producto }}</td>
+        <td class="right">{{ p.cantidad }}</td>
+        <td class="right">$ {{ "%.2f"|format(p.total_producto) }}</td>
       </tr>
-      {% if d.cortesia and d.autorizado %}
-        <tr>
-          <td colspan="4" class="center" style="font-size:10px;">
-            Cortesía autorizada por: {{ d.autorizado }}
-          </td>
-        </tr>
-      {% endif %}
     {% endfor %}
   {% else %}
-    <tr><td colspan="4" class="center">Sin ventas registradas</td></tr>
+    <tr>
+      <td colspan="3" class="center">Sin ventas registradas</td>
+    </tr>
   {% endif %}
 </table>
 
 <hr>
 
-<!-- TOTALES POR FORMA DE PAGO -->
-<table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:2px;">
-  <tr><td colspan="2" class="bold">TOTALES</td></tr>
+<!-- ================= TOTALES POR PAGO ================= -->
+<table style="width:100%; border-collapse:collapse;">
+  <tr class="bold">
+    <td>Forma de Pago</td>
+    <td class="right">Total</td>
+  </tr>
   {% for t in totales_pago %}
     <tr>
       <td>{{ t.modo }}</td>
@@ -80,15 +96,15 @@ hr { border:none; border-top:1px dashed #000; margin:2px 0; }
 
 <hr>
 
-<!-- TOTAL GENERAL -->
-<div class="total-general bold" style="margin-bottom:2px; font-size:13px;">
+<!-- ================= TOTAL GENERAL ================= -->
+<div class="bold right" style="font-size:13px;">
   TOTAL GENERAL: $ {{ "%.2f"|format(total_general) }}
 </div>
 
 <hr>
 
-<!-- PIE DE TICKET -->
-<div class="center" style="margin-top:2px; font-size:14px;">
+<!-- ================= PIE ================= -->
+<div class="center" style="font-size:14px;">
   FIN DE CIERRE<br>
   Gracias
 </div>

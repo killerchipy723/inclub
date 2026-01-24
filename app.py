@@ -353,7 +353,7 @@ def cerrar_caja():
 def estado_caja():
 
     if "idjornada" not in session or "idpunto" not in session:
-        return jsonify(estado="cerrada")
+        return jsonify(estado="Cerrada")
 
     conexion = None
     cursor = None
@@ -371,13 +371,13 @@ def estado_caja():
         row = cursor.fetchone()
 
         if not row:
-            return jsonify(estado="cerrada")
+            return jsonify(estado="Cerrada")
 
         return jsonify(estado=row["estado"].lower())
 
     except Exception as e:
         # fallback seguro
-        return jsonify(estado="cerrada")
+        return jsonify(estado="Cerrada")
 
     finally:
         if cursor:
@@ -389,6 +389,9 @@ def estado_caja():
 # ----------TIKET CAJA---------------
 @app.route("/ticket_cierre_caja")
 def ticket_cierre_caja():
+    from datetime import datetime
+    import pymysql
+
     now = datetime.now()
 
     if "idjornada" not in session or "idpunto" not in session:
@@ -406,7 +409,7 @@ def ticket_cierre_caja():
 
         usuario = session.get("usuario", "OPERADOR")
 
-        # Punto de venta
+        # ================= PUNTO DE VENTA =================
         cursor.execute("""
             SELECT nombre
             FROM puntos_venta
@@ -415,56 +418,55 @@ def ticket_cierre_caja():
         punto = cursor.fetchone()
         nombre_punto = punto["nombre"] if punto else "PUNTO"
 
-        # 🔹 DETALLE DE VENTAS (producto por producto) incluyendo cortesías y autorizado
+        # ================= RESUMEN POR PRODUCTO =================
         cursor.execute("""
-            SELECT 
-                v.fecha_hora AS fecha,
-                DATE_FORMAT(v.fecha_hora, '%%d/%%m/%%Y %%H:%%i') AS fecha_hora,
+            SELECT
                 p.nombre AS producto,
-                mp.modo AS pago,
-                d.subtotal AS importe,
-                d.cortesia,
-                d.autorizado
+                SUM(d.cantidad) AS cantidad,
+                SUM(d.subtotal) AS total_producto
             FROM ventas v
             JOIN ventas_detalle d ON d.idventa = v.idventa
             JOIN productos p ON p.idproductos = d.idproductos
-            JOIN modopago mp ON mp.idmodopago = v.idmodopago
             WHERE v.idjornada = %s
               AND v.idpunto = %s
-            ORDER BY v.fecha_hora ASC
+              AND d.cortesia = 0
+            GROUP BY p.nombre
+            ORDER BY p.nombre
         """, (idjornada, idpunto))
 
-        detalle = cursor.fetchall()
+        productos = cursor.fetchall()
 
-        # 🔹 TOTALES POR FORMA DE PAGO
+        # ================= TOTALES POR FORMA DE PAGO =================
         cursor.execute("""
             SELECT mp.modo,
-                   SUM(d.subtotal) total
+                   SUM(d.subtotal) AS total
             FROM ventas v
             JOIN ventas_detalle d ON d.idventa = v.idventa
             JOIN modopago mp ON mp.idmodopago = v.idmodopago
-            WHERE v.idjornada = %s AND v.idpunto = %s
+            WHERE v.idjornada = %s
+              AND v.idpunto = %s
             GROUP BY mp.modo
+            ORDER BY mp.modo
         """, (idjornada, idpunto))
 
         totales_pago = cursor.fetchall()
 
-        # 🔹 TOTAL GENERAL
+        # ================= TOTAL GENERAL =================
         cursor.execute("""
-            SELECT COALESCE(SUM(d.subtotal),0) total
+            SELECT COALESCE(SUM(d.subtotal),0) AS total
             FROM ventas v
             JOIN ventas_detalle d ON d.idventa = v.idventa
-            WHERE v.idjornada = %s AND v.idpunto = %s
+            WHERE v.idjornada = %s
+              AND v.idpunto = %s
         """, (idjornada, idpunto))
 
-        row_total = cursor.fetchone()
-        total_general = row_total["total"] if row_total else 0
+        total_general = cursor.fetchone()["total"]
 
         return render_template(
             "ticket_cierre_caja.html",
             punto=nombre_punto,
             usuario=usuario,
-            detalle=detalle,
+            productos=productos,
             totales_pago=totales_pago,
             total_general=total_general,
             fecha_impresion=now
@@ -479,6 +481,7 @@ def ticket_cierre_caja():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 
@@ -1159,9 +1162,9 @@ def ventas_home():
 
 
 #Registrar Venta
-# Registrar Venta
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
+
     # ======================
     # 🔒 VERIFICAR SESIÓN
     # ======================
@@ -1172,14 +1175,13 @@ def registrar_venta():
     idpunto   = session["idpunto"]
     idjornada = session["idjornada"]
     idcliente = request.form.get("cliente")
-    idmodopago = request.form.get("modopago")
 
     conexion = None
     cursor = None
 
     try:
         # ======================
-        # 🔗 CONEXIÓN A BD
+        # 🔗 CONEXIÓN BD
         # ======================
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
@@ -1190,34 +1192,77 @@ def registrar_venta():
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
-            WHERE idjornada = %s
-              AND idpunto = %s
+            WHERE idjornada = %s AND idpunto = %s
         """, (idjornada, idpunto))
 
         jp = cursor.fetchone()
         if not jp or jp["estado"] != "Abierto":
             return jsonify({
                 "success": False,
-                "error": "La caja de este punto de venta está cerrada"
+                "error": "La caja está cerrada"
             }), 403
 
         # ======================
-        # 🔢 OBTENER DATOS DEL FORM
+        # 🔢 TOTAL
         # ======================
         total_str = request.form.get("total", "0")
         total_str = total_str.replace(".", "").replace(",", ".")
         total = float(total_str)
 
-        productos   = request.form.getlist("productos[]")
-        cantidades  = request.form.getlist("cantidades[]")
-        precios     = request.form.getlist("precios[]")
-        cortesias   = request.form.getlist("cortesias[]")
-        autorizados = request.form.getlist("autorizados[]")  # <- NUEVO
+        # ======================
+        # 💳 PAGOS (MULTIPLES)
+        # ======================
+        pagos_modo    = request.form.getlist("pagos[idmodopago][]")
+        pagos_importe = request.form.getlist("pagos[importe][]")
+
+        pagos = []
+
+        for i in range(len(pagos_modo)):
+            pagos.append({
+                "idmodopago": int(pagos_modo[i]),
+                "importe": float(pagos_importe[i])
+            })
 
         # ======================
-        # 🔁 INSERTAR VENTA
+        # 🔙 COMPATIBILIDAD PAGO SIMPLE
+        # ======================
+        if not pagos:
+            idmodopago = request.form.get("modopago")
+            pagos = [{
+                "idmodopago": int(idmodopago),
+                "importe": total
+            }]
+        else:
+            # ======================
+            # 🔄 MODO MIXTO
+            # ======================
+            cursor.execute("""
+                SELECT idmodopago
+                FROM modopago
+                WHERE modo = 'MIXTO'
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            if not row:
+                raise Exception("No existe el modo de pago MIXTO")
+
+            idmodopago = row["idmodopago"]
+
+        # ======================
+        # 🔎 VALIDAR SUMA PAGOS
+        # ======================
+        suma_pagos = round(sum(p["importe"] for p in pagos), 2)
+        if round(total, 2) != suma_pagos:
+            return jsonify({
+                "success": False,
+                "error": "La suma de los pagos no coincide con el total"
+            }), 400
+
+        # ======================
+        # 🧾 INSERT VENTA
         # ======================
         qr_token = uuid.uuid4().hex
+
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
@@ -1235,33 +1280,49 @@ def registrar_venta():
         ))
 
         idventa = cursor.lastrowid
+
+        # ======================
+        # 💳 INSERT PAGOS
+        # ======================
+        for p in pagos:
+            cursor.execute("""
+                INSERT INTO ventas_pagos
+                (idventa, idmodopago, importe)
+                VALUES (%s,%s,%s)
+            """, (
+                idventa,
+                p["idmodopago"],
+                p["importe"]
+            ))
+
+        # ======================
+        # 📦 DETALLE DE VENTA
+        # ======================
+        productos   = request.form.getlist("productos[]")
+        cantidades  = request.form.getlist("cantidades[]")
+        precios     = request.form.getlist("precios[]")
+        cortesias   = request.form.getlist("cortesias[]")
+        autorizados = request.form.getlist("autorizados[]")
+
         total_puntos = 0
 
-        # ======================
-        # 🔁 INSERTAR DETALLE DE VENTA
-        # ======================
         for i in range(len(productos)):
-            idproducto = productos[i]
             cantidad = int(cantidades[i])
-            precio = float(precios[i])
+            precio   = float(precios[i])
 
-            es_cortesia = False
-            if i < len(cortesias):
-                es_cortesia = cortesias[i] == "1"
-
-            autorizado = ""
-            if i < len(autorizados):
-                autorizado = autorizados[i]
+            es_cortesia = i < len(cortesias) and cortesias[i] == "1"
+            autorizado  = autorizados[i] if i < len(autorizados) else ""
 
             subtotal = 0 if es_cortesia else cantidad * precio
 
             cursor.execute("""
                 INSERT INTO ventas_detalle
-                (idventa, idproductos, cantidad, precio_unitario, subtotal, cortesia, autorizado)
+                (idventa, idproductos, cantidad, precio_unitario,
+                 subtotal, cortesia, autorizado)
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
             """, (
                 idventa,
-                idproducto,
+                productos[i],
                 cantidad,
                 precio,
                 subtotal,
@@ -1273,7 +1334,7 @@ def registrar_venta():
                 total_puntos += int(subtotal // 100)
 
         # ======================
-        # 🔄 ACTUALIZAR PUNTOS
+        # 🎯 ACTUALIZAR PUNTOS
         # ======================
         cursor.execute("""
             UPDATE ventas
@@ -1286,23 +1347,25 @@ def registrar_venta():
         # ======================
         conexion.commit()
 
-        # ======================
-        # ✅ RESPUESTA EXITOSA
-        # ======================
-        return jsonify({"success": True, "idventa": idventa})
+        return jsonify({
+            "success": True,
+            "idventa": idventa
+        })
 
     except Exception as e:
         if conexion:
             conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
     finally:
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
-
 
 
 
@@ -2730,10 +2793,8 @@ def delete_Modopago(id):
 #Ticket de venta 
 @app.route("/ticket/<int:idventa>")
 def ticket(idventa):
-
     conexion = None
     cursor = None
-    fecha_impresion = datetime.now()
 
     try:
         # ======================
@@ -2746,17 +2807,17 @@ def ticket(idventa):
         # DATOS DE LA VENTA
         # ======================
         cursor.execute("""
-            SELECT v.idventa,
-                   v.fecha_hora AS fecha,
-                   v.total,
-                   IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
-                   j.nombre AS jornada
+            SELECT 
+                v.idventa,
+                v.fecha_hora,
+                v.total,
+                IFNULL(c.apenomb, 'Consumidor Final') AS cliente,
+                j.nombre AS jornada
             FROM ventas v
             LEFT JOIN clientes c ON c.idclientes = v.idclientes
             JOIN jornadas j ON j.idjornada = v.idjornada
             WHERE v.idventa = %s
         """, (idventa,))
-
         venta = cursor.fetchone()
 
         if not venta:
@@ -2770,16 +2831,38 @@ def ticket(idventa):
                 d.iddetalle,
                 p.nombre AS producto,
                 d.cantidad,
-                d.subtotal,
-                mp.modo
+                d.subtotal
             FROM ventas_detalle d
             JOIN productos p ON p.idproductos = d.idproductos
-            JOIN ventas v ON v.idventa = d.idventa
-            JOIN modopago mp ON mp.idmodopago = v.idmodopago
-            WHERE v.idventa = %s
+            WHERE d.idventa = %s
         """, (idventa,))
-
         detalle = cursor.fetchall()
+
+        # ======================
+        # OBTENER TODOS LOS PAGOS
+        # ======================
+        # Siempre buscamos los pagos individuales de ventas_pagos
+        cursor.execute("""
+            SELECT 
+                mp.modo,
+                vp.importe
+            FROM ventas_pagos vp
+            JOIN modopago mp ON mp.idmodopago = vp.idmodopago
+            WHERE vp.idventa = %s
+        """, (idventa,))
+        pagos = cursor.fetchall()
+
+        # Si no existen pagos en ventas_pagos → es un pago simple
+        if not pagos:
+            cursor.execute("""
+                SELECT 
+                    mp.modo,
+                    v.total AS importe
+                FROM ventas v
+                JOIN modopago mp ON mp.idmodopago = v.idmodopago
+                WHERE v.idventa = %s
+            """, (idventa,))
+            pagos = cursor.fetchall()
 
     except Exception as e:
         print("❌ Error al generar ticket:", e)
@@ -2798,9 +2881,8 @@ def ticket(idventa):
         f"TICKETJETS\n"
         f"Venta: {venta['idventa']}\n"
         f"Total: ${venta['total']}\n"
-        f"Fecha: {venta['fecha'].strftime('%d/%m/%Y %H:%M')}"
+        f"Fecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
     )
-
     qr = qrcode.make(qr_texto)
     buffer = BytesIO()
     qr.save(buffer, format="PNG")
@@ -2812,16 +2894,15 @@ def ticket(idventa):
     return render_template(
         "ticket.html",
         idventa=venta["idventa"],
-        jornada=venta["jornada"],
-        fecha_hora=venta["fecha"].strftime("%d/%m/%Y %H:%M"),
-        cliente=venta["cliente"],
-        detalle=detalle,
-        subtotal=venta["total"],
-        total_general=venta["total"],
+        fecha_hora=venta["fecha_hora"].strftime("%d/%m/%Y %H:%M"),
         total=venta["total"],
-        qr_base64=qr_base64,
-        fecha_impresion=fecha_impresion
+        cliente=venta["cliente"],
+        jornada=venta["jornada"],
+        detalle=detalle,
+        pagos=pagos,  # ← ya contiene todos los pagos individuales
+        qr_base64=qr_base64
     )
+
 
 
 # Ruta para ver el ticket de Venta
