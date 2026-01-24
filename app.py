@@ -3035,6 +3035,7 @@ def admin_reportes():
             SELECT v.fecha_hora,
                    j.nombre AS jornada,
                    pto.nombre AS caja,
+                   mp.modo AS modo_pago,
                    pr.nombre AS producto,
                    d.cantidad,
                    d.subtotal
@@ -3043,6 +3044,7 @@ def admin_reportes():
             JOIN puntos_venta pto ON pto.idpunto = v.idpunto
             JOIN ventas_detalle d ON d.idventa = v.idventa
             JOIN productos pr ON pr.idproductos = d.idproductos
+            JOIN modopago mp ON mp.idmodopago = v.idmodopago
             {where_sql}
             ORDER BY v.fecha_hora DESC
         """
@@ -3062,19 +3064,13 @@ def admin_reportes():
             if j:
                 jornada_nombre = j["nombre"]
 
-        cursor.execute(
-            "SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC"
-        )
+        cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
         jornadas = cursor.fetchall()
 
-        cursor.execute(
-            "SELECT idpunto, nombre FROM puntos_venta"
-        )
+        cursor.execute("SELECT idpunto, nombre FROM puntos_venta")
         cajas = cursor.fetchall()
 
-        cursor.execute(
-            "SELECT idproductos, nombre FROM productos"
-        )
+        cursor.execute("SELECT idproductos, nombre FROM productos")
         productos = cursor.fetchall()
 
         return render_template(
@@ -3097,6 +3093,7 @@ def admin_reportes():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 
@@ -3375,4 +3372,4 @@ def delete_sector_entrada(id):
 
 #-------------------------------Arranque-----------------------------------
 if __name__=='__main__':    
-    app.run(host="0.0.0.0", port=6900,debug=True)  
+    app.run(host="0.0.0.0", port=6900,debug=False)  

@@ -28,7 +28,6 @@ body {
     max-width: 1200px;
 }
 
-/* ================= CABECERA ================= */
 .header {
     border-bottom: 3px solid #000;
     padding-bottom: 15px;
@@ -54,7 +53,6 @@ body {
     text-align: right;
 }
 
-/* ================= TABLA ================= */
 .table th {
     background-color: #f2f2f2;
     font-size: 12px;
@@ -66,7 +64,6 @@ body {
     vertical-align: middle;
 }
 
-/* ================= TOTAL ================= */
 .total-box {
     margin-top: 30px;
     padding-top: 15px;
@@ -82,7 +79,7 @@ body {
 
 <div class="container mt-4">
 
-    <!-- ================= CABECERA ================= -->
+    <!-- CABECERA -->
     <div class="row align-items-center header">
         <div class="col-3">
             <img src="/static/img/logoJetSmall.png" class="logo">
@@ -99,7 +96,7 @@ body {
         </div>
     </div>
 
-    <!-- ================= FILTROS ================= -->
+    <!-- FILTROS -->
     <div class="card p-3 mb-4 no-print">
         <form method="POST" class="row g-3">
 
@@ -144,28 +141,27 @@ body {
             </div>
 
             <div class="col-md-2 d-flex align-items-end">
-                <button class="btn btn-dark btn-sm w-100">
-                    Filtrar
-                </button>
+                <button class="btn btn-dark btn-sm w-100">Filtrar</button>
             </div>
 
         </form>
     </div>
 
-    <!-- ================= BOTON PDF ================= -->
+    <!-- BOTON PDF -->
     <div class="text-end mb-3 no-print">
         <button class="btn btn-outline-dark btn-sm" onclick="window.print()">
             📄 Exportar a PDF
         </button>
     </div>
 
-    <!-- ================= TABLA ================= -->
+    <!-- TABLA -->
     <table class="table table-bordered table-hover">
         <thead>
             <tr>
                 <th>Fecha</th>
                 <th>Jornada</th>
                 <th>Caja</th>
+                <th>Modo de Pago</th>
                 <th>Producto</th>
                 <th>Cant.</th>
                 <th class="text-end">Subtotal</th>
@@ -177,6 +173,7 @@ body {
                 <td>{{ v.fecha_hora.strftime("%d/%m/%Y %H:%M") }}</td>
                 <td>{{ v.jornada }}</td>
                 <td>{{ v.caja }}</td>
+                <td>{{ v.modo_pago }}</td>
                 <td>{{ v.producto }}</td>
                 <td class="text-center">{{ v.cantidad }}</td>
                 <td class="text-end">
@@ -190,7 +187,7 @@ body {
         </tbody>
     </table>
 
-    <!-- ================= TOTAL GENERAL ================= -->
+    <!-- TOTAL -->
     <div class="total-box">
         TOTAL GENERAL DE LA JORNADA:
         $ {{ "{:,.2f}".format(total_general)
