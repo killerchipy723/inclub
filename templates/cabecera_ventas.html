@@ -1,96 +1,41 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TicketsJets | Panel</title>
-    <link rel="shortcut icon" href="/static/img/logoJetSmall.png" type="image/x-icon">
-
-    <!-- Bootstrap LOCAL -->
-    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/styles/cabecera_ventas.css">
-
-    <!-- Estilos personalizados -->
-    
-</head>
-
+<!-- JS globales -->
 <script src="/static/js/mensajes.js"></script>
 
-<body>
-
-<!-- ====================== BARRA SUPERIOR ====================== -->
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
-    <!-- Usuario / Rol / Reloj -->
-   <div class="fw-semibold">
+  <div class="fw-semibold">
     👤 {{ session['nombre'] }}
     <span class="opacity-75">({{ session['operador'] }})</span>
     <span class="ms-3" id="reloj"></span>
+  </div>
+
+  <div id="estadoCaja" class="badge bg-secondary ms-2">
+    Caja: --
+  </div>
+
+  {% if jornada %}
+  <div class="text-center">
+    <div class="fw-bold text-warning">
+      🟢 Jornada activa: {{ jornada.nombre }}
+    </div>
+    <div class="fw-bold text-success" id="recaudacionCaja">
+      💰 Recaudación Parcial: $
+      {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="/logout" class="btn btn-danger btn-sm text-white">
+    Cerrar sesión
+  </a>
+
+  <button class="btn btn-danger" onclick="cerrarCaja()">
+    🔒 Cerrar Caja
+  </button>
 </div>
 
-
-
-    <div id="estadoCaja"
-            class="badge bg-secondary ms-2">
-        Caja: --
-    </div>
-
-
-    <!-- Jornada + Recaudación -->
-    {% if jornada %}
-    <div class="text-center">
-        <div class="fw-bold text-warning">
-            🟢 Jornada activa: {{ jornada.nombre }}
-        </div>
-        <div class="fw-bold text-success" id="recaudacionCaja">
-            💰 Recaudación Parcial: $ {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
-        </div>
-    </div>
-    {% endif %}
-
-
-    <!-- Logout -->
-    <div>
-        <a href="/logout" class="btn btn-danger btn-sm text-white px-3 py-2">
-            Cerrar sesión
-        </a>
-    </div>
-
-   
-    <button
-        type="button"
-        class="btn btn-danger"
-        onclick="cerrarCaja()">
-        🔒 Cerrar Caja
-    </button>
-
-
-    <div id="totalCaja" class="fw-bold mt-2"></div>
-
-
-</div>
-
-<!-- ====================== NAVBAR ====================== -->
 <nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">TicketJets | Sistema de Gestión</a>
-
-        <button class="navbar-toggler bg-danger" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse justify-content-end" id="menu">
-            <ul class="navbar-nav">
-                <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
-                <li class="nav-item"><a class="nav-link" href="/ventas">Venta</a></li>
-            </ul>
-        </div>
-    </div>
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">TicketJets | Sistema de Gestión</a>
+  </div>
 </nav>
-
-<!-- Bootstrap JS LOCAL -->
-<script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-
-
-</body>
-</html>

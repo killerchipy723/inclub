@@ -1,4 +1,6 @@
-{% include '/cabecera_ventas.html' %}
+{% extends 'base.html' %}
+
+{% block contenido %}
 
 <div class="container-fluid mt-2">
 
@@ -84,6 +86,15 @@
             <option value="{{ m.idmodopago }}">{{ m.modo }}</option>
             {% endfor %}
           </select>
+        </div>
+
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input"
+                type="checkbox"
+                id="togglePagoCombinado">
+          <label class="form-check-label" for="togglePagoCombinado">
+            Pago combinado
+          </label>
         </div>
 
         <!-- TABLA CARRITO -->
@@ -261,4 +272,4 @@
 <!-- ================= SCRIPT ================= -->
 <script src="/static/js/ventas_script.js"></script>
 
-{% include '/pie.html' %}
+{% endblock %}

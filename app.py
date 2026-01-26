@@ -1177,7 +1177,6 @@ def ventas_home():
 
 
 
-#Registrar Venta
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
     if "id" not in session:
@@ -1195,23 +1194,28 @@ def registrar_venta():
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # Validar caja abierta
+        # ================= VALIDAR CAJA ABIERTA =================
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
             WHERE idjornada = %s AND idpunto = %s
         """, (idjornada, idpunto))
         jp = cursor.fetchone()
+
         if not jp or jp["estado"] != "Abierto":
-            return jsonify({"success": False, "error": "La caja está cerrada"}), 403
+            return jsonify({
+                "success": False,
+                "error": "La caja está cerrada"
+            }), 403
 
-        # Total venta
-        total_str = request.form.get("total", "0").replace(".", "").replace(",", ".")
-        total = float(total_str)
+        # ================= TOTAL VENTA =================
+        total_str = request.form.get("total", "0")
+        total = float(total_str.replace(".", "").replace(",", "."))
 
-        # Construir lista de pagos
+        # ================= ARMAR PAGOS =================
         pagos_modo    = request.form.getlist("pagos[idmodopago][]")
         pagos_importe = request.form.getlist("pagos[importe][]")
+
         pagos = []
 
         for i in range(len(pagos_modo)):
@@ -1220,28 +1224,31 @@ def registrar_venta():
                 "importe": float(pagos_importe[i])
             })
 
-        # Compatibilidad pago simple
+        # ================= PAGO SIMPLE (COMPATIBILIDAD) =================
         if not pagos:
-            idmodopago_form = request.form.get("modopago")
-            pagos = [{"idmodopago": int(idmodopago_form), "importe": total}]
+            idmodopago_form = int(request.form.get("modopago"))
+            pagos = [{
+                "idmodopago": idmodopago_form,
+                "importe": total
+            }]
 
-        # Determinar idmodopago para la tabla ventas
-        if len(pagos) == 1:
-            idmodopago = pagos[0]["idmodopago"]
-        else:
-            cursor.execute("SELECT idmodopago FROM modopago WHERE modo='MIXTO' LIMIT 1")
-            row = cursor.fetchone()
-            if not row:
-                raise Exception("No existe el modo de pago MIXTO")
-            idmodopago = row["idmodopago"]
-
-        # Validar suma pagos
+        # ================= VALIDAR SUMA DE PAGOS =================
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
         if round(total, 2) != suma_pagos:
-            return jsonify({"success": False, "error": "La suma de los pagos no coincide con el total"}), 400
+            return jsonify({
+                "success": False,
+                "error": "La suma de los pagos no coincide con el total"
+            }), 400
 
-        # Insertar venta
+        # ================= ID MODO PAGO PARA VENTAS =================
+        if len(pagos) == 1:
+            idmodopago_venta = pagos[0]["idmodopago"]
+        else:
+            idmodopago_venta = None  # Pagos combinados → NULL
+
+        # ================= INSERTAR VENTA =================
         qr_token = uuid.uuid4().hex
+
         cursor.execute("""
             INSERT INTO ventas
             (idjornada, idusuario, idpunto, idclientes, idmodopago,
@@ -1253,21 +1260,26 @@ def registrar_venta():
             idusuario,
             idpunto,
             idcliente if idcliente != "0" else None,
-            idmodopago,
+            idmodopago_venta,
             total,
             qr_token
         ))
+
         idventa = cursor.lastrowid
 
-        # Insertar pagos
+        # ================= INSERTAR PAGOS (DETALLADOS) =================
         for p in pagos:
             cursor.execute("""
                 INSERT INTO ventas_pagos
                 (idventa, idmodopago, importe)
                 VALUES (%s,%s,%s)
-            """, (idventa, p["idmodopago"], p["importe"]))
+            """, (
+                idventa,
+                p["idmodopago"],
+                p["importe"]
+            ))
 
-        # Insertar detalle de productos
+        # ================= DETALLE DE PRODUCTOS =================
         productos   = request.form.getlist("productos[]")
         cantidades  = request.form.getlist("cantidades[]")
         precios     = request.form.getlist("precios[]")
@@ -1275,11 +1287,13 @@ def registrar_venta():
         autorizados = request.form.getlist("autorizados[]")
 
         total_puntos = 0
+
         for i in range(len(productos)):
             cantidad = int(cantidades[i])
             precio   = float(precios[i])
             es_cortesia = i < len(cortesias) and cortesias[i] == "1"
             autorizado  = autorizados[i] if i < len(autorizados) else ""
+
             subtotal = 0 if es_cortesia else cantidad * precio
 
             cursor.execute("""
@@ -1287,29 +1301,48 @@ def registrar_venta():
                 (idventa, idproductos, cantidad, precio_unitario,
                  subtotal, cortesia, autorizado)
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (idventa, productos[i], cantidad, precio, subtotal, es_cortesia, autorizado))
+            """, (
+                idventa,
+                productos[i],
+                cantidad,
+                precio,
+                subtotal,
+                es_cortesia,
+                autorizado
+            ))
 
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
-        # Actualizar puntos ganados
-        cursor.execute("UPDATE ventas SET puntos_ganados = %s WHERE idventa = %s",
-                       (total_puntos, idventa))
+        # ================= ACTUALIZAR PUNTOS =================
+        cursor.execute("""
+            UPDATE ventas
+            SET puntos_ganados = %s
+            WHERE idventa = %s
+        """, (total_puntos, idventa))
 
         conexion.commit()
-        return jsonify({"success": True, "idventa": idventa})
+
+        return jsonify({
+            "success": True,
+            "idventa": idventa
+        })
 
     except Exception as e:
         if conexion:
             conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
     finally:
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 
@@ -3372,4 +3405,4 @@ def delete_sector_entrada(id):
 
 #-------------------------------Arranque-----------------------------------
 if __name__=='__main__':    
-    app.run(host="0.0.0.0", port=6900,debug=False)  
+    app.run(host="0.0.0.0", port=6900,debug=True)  

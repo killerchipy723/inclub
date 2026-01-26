@@ -13,6 +13,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =====================================================
+     REFERENCIAS
+  ===================================================== */
+  const togglePagoCombinado = $("togglePagoCombinado");
+  const selectModoPago = $("modopago");
+
+  let carrito = [];
+  let pagosMixtos = [];
+  let pagoMixtoConfirmado = false;
+
+  /* =====================================================
      ESTADO DE CAJA
   ===================================================== */
   async function verificarEstadoCaja() {
@@ -27,16 +37,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.estado === "abierto") {
         badge.textContent = "Caja Abierta";
         badge.className = "badge bg-success ms-2";
-        if (btnCobrar) btnCobrar.disabled = false;
+        btnCobrar.disabled = false;
       } else {
         badge.textContent = "Caja Cerrada";
         badge.className = "badge bg-danger ms-2";
-        if (btnCobrar) btnCobrar.disabled = true;
+        btnCobrar.disabled = true;
       }
     } catch {
       badge.textContent = "Caja Cerrada";
       badge.className = "badge bg-danger ms-2";
-      if (btnCobrar) btnCobrar.disabled = true;
+      btnCobrar.disabled = true;
     }
   }
 
@@ -45,9 +55,6 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =====================================================
      CARRITO
   ===================================================== */
-  let carrito = [];
-  let pagosMixtos = [];
-
   function calcularTotal() {
     return carrito.reduce((acc, p) =>
       acc + (p.cortesia ? 0 : p.precio * p.cantidad), 0
@@ -69,19 +76,14 @@ document.addEventListener("DOMContentLoaded", () => {
         <tr>
           <td>${p.nombre}</td>
           <td>
-            <input type="number"
-                   class="form-control form-control-sm cantidad"
-                   data-index="${i}"
-                   min="1"
-                   value="${p.cantidad}">
+            <input type="number" class="form-control form-control-sm cantidad"
+                   data-index="${i}" min="1" value="${p.cantidad}">
           </td>
           <td class="text-end">$ ${formatoMoneda(p.precio)}</td>
           <td class="text-end">$ ${formatoMoneda(subtotal)}</td>
           <td class="text-center">
-            <input type="checkbox"
-                   class="form-check-input cortesia"
-                   data-index="${i}"
-                   ${p.cortesia ? "checked" : ""}>
+            <input type="checkbox" class="form-check-input cortesia"
+                   data-index="${i}" ${p.cortesia ? "checked" : ""}>
           </td>
           <td>
             <button class="btn btn-danger btn-sm eliminar"
@@ -98,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    if ($("total")) $("total").textContent = formatoMoneda(calcularTotal());
+    $("total").textContent = formatoMoneda(calcularTotal());
   }
 
   /* =====================================================
@@ -107,11 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".agregar").forEach(btn => {
     btn.addEventListener("click", e => {
       const card = e.target.closest(".producto-card");
-      if (!card) return;
-
       const id = card.dataset.id;
-      let prod = carrito.find(p => p.id == id);
 
+      let prod = carrito.find(p => p.id == id);
       if (prod) {
         prod.cantidad++;
       } else {
@@ -124,7 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
           autorizado: ""
         });
       }
-
       actualizarCarrito();
     });
   });
@@ -143,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.classList.contains("cortesia")) {
       carrito[i].cortesia = e.target.checked;
 
-      if (e.target.checked && $("modalCortesia")) {
+      if (e.target.checked) {
         $("guardarAutorizacion").dataset.index = i;
         new bootstrap.Modal($("modalCortesia")).show();
       } else {
@@ -162,76 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* =====================================================
-     AUTOCOMPLETE CLIENTES
+     TOGGLE PAGO COMBINADO
   ===================================================== */
-  const clienteInput = $("clienteInput");
-  const listaClientes = $("listaClientes");
-  const idclienteInput = $("idcliente");
-
-  clienteInput?.addEventListener("input", async () => {
-    const q = clienteInput.value.trim();
-
-    listaClientes.innerHTML = "";
-    idclienteInput.value = "1";
-
-    if (q.length < 2) return;
-
-    try {
-      const res = await fetch(`/buscar_clientes?q=${q}`);
-      const clientes = await res.json();
-
-      clientes.forEach(c => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "list-group-item list-group-item-action";
-        btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
-
-        btn.onclick = () => {
-          clienteInput.value = c.apenomb;
-          idclienteInput.value = c.idclientes;
-          listaClientes.innerHTML = "";
-        };
-
-        listaClientes.appendChild(btn);
-      });
-    } catch (err) {
-      console.error("Error buscando clientes:", err);
+  togglePagoCombinado?.addEventListener("change", () => {
+    if (togglePagoCombinado.checked) {
+      selectModoPago.disabled = true;
+      abrirPagoMixto();
+    } else {
+      selectModoPago.disabled = false;
+      pagoMixtoConfirmado = false;
     }
   });
-
-  /* =====================================================
-     AUTORIZACION CORTESIA
-  ===================================================== */
-  $("guardarAutorizacion")?.addEventListener("click", () => {
-    const i = $("guardarAutorizacion").dataset.index;
-    const nombre = $("autorizadoInput")?.value.trim();
-
-    if (!nombre) {
-      alert("Ingrese nombre");
-      return;
-    }
-
-    carrito[i].autorizado = nombre;
-    $("autorizadoInput").value = "";
-    bootstrap.Modal.getInstance($("modalCortesia"))?.hide();
-    actualizarCarrito();
-  });
-
-  // ================= ACTUALIZAR RECAUDACION =================
-async function actualizarRecaudacionCaja() {
-  const res = await fetch("/recaudacion_actual");
-  const data = await res.json();
-
-  const total = new Intl.NumberFormat("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(data.total);
-
-  const div = document.getElementById("recaudacionCaja");
-  if (div) {
-    div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
-  }
-}
 
   /* =====================================================
      COBRAR
@@ -242,56 +182,38 @@ async function actualizarRecaudacionCaja() {
       return;
     }
 
-    const modo = $("modopago")?.selectedOptions[0]?.text.toUpperCase();
-
-    if (modo === "MIXTO") {
+    if (togglePagoCombinado?.checked && !pagoMixtoConfirmado) {
       abrirPagoMixto();
-    } else {
-      registrarVenta(new FormData());
-      actualizarRecaudacionCaja() 
+      return;
     }
+
+    registrarVenta(new FormData());
   });
 
   /* =====================================================
      PAGO MIXTO
   ===================================================== */
   function abrirPagoMixto() {
-    const modal = $("modalPagos");
-    const cont = $("pagosContainer");
-    const totalSpan = $("totalVentaModal");
-
-    if (!modal || !cont || !totalSpan) {
-      alert("Error en modal de pago mixto");
-      return;
-    }
-
-    cont.innerHTML = "";
-    totalSpan.textContent = formatoMoneda(calcularTotal());
-
+    $("pagosContainer").innerHTML = "";
+    $("totalVentaModal").textContent = formatoMoneda(calcularTotal());
     agregarFilaPago();
-    new bootstrap.Modal(modal).show();
+    new bootstrap.Modal($("modalPagos")).show();
   }
 
   function agregarFilaPago() {
-    const cont = $("pagosContainer");
-    const selectBase = $("modopago");
-    if (!cont || !selectBase) return;
-
     const div = document.createElement("div");
     div.className = "row g-2 mb-2";
     div.innerHTML = `
       <div class="col-7">
         <select class="form-select form-select-sm medioPago">
-          ${selectBase.innerHTML}
+          ${selectModoPago.innerHTML}
         </select>
       </div>
       <div class="col-5">
-        <input type="number"
-               class="form-control form-control-sm montoPago"
-               min="0">
+        <input type="number" class="form-control form-control-sm montoPago" min="0">
       </div>
     `;
-    cont.appendChild(div);
+    $("pagosContainer").appendChild(div);
   }
 
   $("btnAgregarPago")?.addEventListener("click", agregarFilaPago);
@@ -303,7 +225,6 @@ async function actualizarRecaudacionCaja() {
     document.querySelectorAll("#pagosContainer .row").forEach(r => {
       const medio = r.querySelector(".medioPago").value;
       const monto = parseFloat(r.querySelector(".montoPago").value || 0);
-
       if (monto > 0) {
         suma += monto;
         pagos.push({ medio, monto });
@@ -318,7 +239,8 @@ async function actualizarRecaudacionCaja() {
     const fd = new FormData();
     fd.append("pagos_mixtos", JSON.stringify(pagos));
 
-    bootstrap.Modal.getInstance($("modalPagos"))?.hide();
+    pagoMixtoConfirmado = true;
+    bootstrap.Modal.getInstance($("modalPagos")).hide();
     registrarVenta(fd);
   });
 
@@ -326,8 +248,8 @@ async function actualizarRecaudacionCaja() {
      REGISTRAR VENTA
   ===================================================== */
   async function registrarVenta(fd) {
-    fd.append("cliente", $("idcliente")?.value || 1);
-    fd.append("modopago", $("modopago")?.value);
+    fd.append("cliente", $("idcliente").value);
+    fd.append("modopago", selectModoPago.value);
     fd.append("total", calcularTotal());
 
     carrito.forEach(p => {
@@ -338,19 +260,15 @@ async function actualizarRecaudacionCaja() {
       fd.append("autorizados[]", p.autorizado || "");
     });
 
-    const res = await fetch("/registrar_venta", {
-      method: "POST",
-      body: fd
-    });
-
+    const res = await fetch("/registrar_venta", { method: "POST", body: fd });
     const data = await res.json();
+
     if (!data.success) {
       alert(data.msg);
       return;
     }
 
     imprimirTicket(data.idventa);
-    actualizarRecaudacionCaja(); 
     resetearVenta();
   }
 
@@ -365,51 +283,17 @@ async function actualizarRecaudacionCaja() {
   function resetearVenta() {
     carrito = [];
     pagosMixtos = [];
+    pagoMixtoConfirmado = false;
 
     actualizarCarrito();
+    $("clienteInput").value = "Consumidor Final";
+    $("idcliente").value = "1";
+    selectModoPago.selectedIndex = 0;
+    selectModoPago.disabled = false;
+    togglePagoCombinado.checked = false;
 
-    if ($("clienteInput")) $("clienteInput").value = "Consumidor Final";
-    if ($("idcliente")) $("idcliente").value = "1";
-    if ($("modopago")) $("modopago").selectedIndex = 0;
-
-    if ($("pagosContainer")) $("pagosContainer").innerHTML = "";
-    if ($("totalVentaModal")) $("totalVentaModal").textContent = "0";
+    $("pagosContainer").innerHTML = "";
+    $("totalVentaModal").textContent = "0";
   }
-
-    /* =====================================================
-     CERRAR CAJA
-  ===================================================== */
-    window.cerrarCaja = async function cerrarCaja() {
-    if (!confirm("¿Confirmar cierre de caja?")) return;
-
-    try {
-      const res = await fetch("/cerrar_caja", { method: "POST" });
-      const data = await res.json();
-
-      if (!data.ok) {
-        alert(data.msg || "Error al cerrar caja");
-        return;
-      }
-
-      imprimirCierreCaja();
-      verificarEstadoCaja();
-
-    } catch (error) {
-      console.error("Error cerrando caja:", error);
-      alert("Error de comunicación con el servidor");
-    }
-  };
-
-
-  function imprimirCierreCaja() {
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = "/ticket_cierre_caja";
-    document.body.appendChild(iframe);
-    iframe.onload = () => iframe.contentWindow.print();
-  }
-
 
 });
-
-
