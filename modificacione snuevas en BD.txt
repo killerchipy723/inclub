@@ -1,0 +1,9 @@
+Que modificar en la base de datos 
+
+####### Tabla ventas_pagos: quitar mixto y agregar alguna otra
+        
+####### Tabla Ventas modificar a not nul el campo idmodopago: 
+
+        ALTER TABLE ventas
+        MODIFY idmodopago INT NULL;
+
