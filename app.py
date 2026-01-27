@@ -6,6 +6,7 @@ import pymysql
 import qrcode
 import base64
 from io import BytesIO
+import json
 
 
 
@@ -1127,7 +1128,7 @@ def ventas_home():
         cursor.execute("""
             SELECT idmodopago, modo
             FROM modopago
-            ORDER BY modo
+            ORDER BY idmodopago ASC
         """)
         modopago = cursor.fetchall()
 
@@ -1212,25 +1213,33 @@ def registrar_venta():
         total_str = request.form.get("total", "0")
         total = float(total_str.replace(".", "").replace(",", "."))
 
-        # ================= ARMAR PAGOS =================
-        pagos_modo    = request.form.getlist("pagos[idmodopago][]")
-        pagos_importe = request.form.getlist("pagos[importe][]")
-
+            # ================= ARMAR PAGOS =================
         pagos = []
 
-        for i in range(len(pagos_modo)):
+        # 🔹 NUEVO: pagos mixtos desde JS (JSON)
+        pagos_mixtos_json = request.form.get("pagos_mixtos")
+
+        if pagos_mixtos_json:
+            pagos_mixtos = json.loads(pagos_mixtos_json)
+
+            for p in pagos_mixtos:
+                pagos.append({
+                    "idmodopago": int(p["medio"]),
+                    "importe": float(p["monto"])
+                })
+
+        else:
+            # 🔹 PAGO SIMPLE (compatibilidad total)
+            idmodopago_form = request.form.get("modopago")
+
+            if not idmodopago_form:
+                raise Exception("No se recibió modo de pago")
+
             pagos.append({
-                "idmodopago": int(pagos_modo[i]),
-                "importe": float(pagos_importe[i])
+                "idmodopago": int(idmodopago_form),
+                "importe": total
             })
 
-        # ================= PAGO SIMPLE (COMPATIBILIDAD) =================
-        if not pagos:
-            idmodopago_form = int(request.form.get("modopago"))
-            pagos = [{
-                "idmodopago": idmodopago_form,
-                "importe": total
-            }]
 
         # ================= VALIDAR SUMA DE PAGOS =================
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
@@ -2230,11 +2239,6 @@ def agregar_producto_jornada(idjornada, idproducto):
 #Ruta Principal de productos
 
 # ======================
-# RUTA: Productos
-# ======================
-# ======================
-# RUTA: Listado de Productos
-# ======================
 @app.route("/Productos")
 def home_Productos():
     if "id" not in session:
@@ -2778,7 +2782,7 @@ def ticket(idventa):
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # Datos de la venta
+        # ================= DATOS DE LA VENTA =================
         cursor.execute("""
             SELECT v.idventa, v.fecha_hora, v.total,
                    IFNULL(c.apenomb,'Consumidor Final') AS cliente,
@@ -2789,19 +2793,33 @@ def ticket(idventa):
             WHERE v.idventa = %s
         """, (idventa,))
         venta = cursor.fetchone()
+
         if not venta:
             return "Venta no encontrada", 404
 
-        # Detalle de productos
+        # ================= DETALLE PRODUCTOS =================
         cursor.execute("""
-            SELECT p.nombre AS producto, d.cantidad, d.subtotal
+            SELECT p.nombre AS producto,
+                   d.cantidad,
+                   d.autorizado,
+                   d.subtotal
             FROM ventas_detalle d
             JOIN productos p ON p.idproductos = d.idproductos
             WHERE d.idventa = %s
         """, (idventa,))
         detalle = cursor.fetchall()
 
-        # Detalle de pagos
+        # ================= DETECTAR CORTESÍA =================
+        es_cortesia = False
+        autorizado_cortesia = None
+
+        for d in detalle:
+            if d.get("autorizado"):
+                es_cortesia = True
+                autorizado_cortesia = d["autorizado"]
+                break
+
+        # ================= DETALLE PAGOS =================
         cursor.execute("""
             SELECT mp.modo, vp.importe
             FROM ventas_pagos vp
@@ -2820,8 +2838,14 @@ def ticket(idventa):
         if conexion:
             conexion.close()
 
-    # Generar QR
-    qr_texto = f"TICKETJETS\nVenta: {venta['idventa']}\nTotal: ${venta['total']}\nFecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
+    # ================= GENERAR QR =================
+    qr_texto = (
+        f"TICKETJETS\n"
+        f"Venta: {venta['idventa']}\n"
+        f"Total: ${venta['total']}\n"
+        f"Fecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
+    )
+
     qr = qrcode.make(qr_texto)
     buffer = BytesIO()
     qr.save(buffer, format="PNG")
@@ -2836,8 +2860,11 @@ def ticket(idventa):
         jornada=venta["jornada"],
         detalle=detalle,
         pagos=pagos,
-        qr_base64=qr_base64
+        qr_base64=qr_base64,
+        es_cortesia=es_cortesia,
+        autorizado_cortesia=autorizado_cortesia
     )
+
 
 
 
@@ -3035,11 +3062,12 @@ def admin_reportes():
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        idjornada = request.form.get("idjornada")
-        idcaja = request.form.get("idcaja")
+        # ================= FILTROS =================
+        idjornada  = request.form.get("idjornada")
+        idcaja     = request.form.get("idcaja")
         idproducto = request.form.get("idproducto")
-        desde = request.form.get("desde")
-        hasta = request.form.get("hasta")
+        desde      = request.form.get("desde")
+        hasta      = request.form.get("hasta")
 
         condiciones = []
         valores = []
@@ -3064,20 +3092,27 @@ def admin_reportes():
         if condiciones:
             where_sql = "WHERE " + " AND ".join(condiciones)
 
+        # ================= QUERY PRINCIPAL =================
         query = f"""
-            SELECT v.fecha_hora,
-                   j.nombre AS jornada,
-                   pto.nombre AS caja,
-                   mp.modo AS modo_pago,
-                   pr.nombre AS producto,
-                   d.cantidad,
-                   d.subtotal
+            SELECT
+                v.idventa,
+                v.fecha_hora,
+                j.nombre  AS jornada,
+                pto.nombre AS caja,
+                mp.modo   AS modo_pago,
+                pr.nombre AS producto,
+                d.cortesia,
+                d.autorizado,
+                d.cantidad,
+                d.subtotal,
+                vp.importe AS importe_pago
             FROM ventas v
-            JOIN jornadas j ON j.idjornada = v.idjornada
+            JOIN jornadas j       ON j.idjornada = v.idjornada
             JOIN puntos_venta pto ON pto.idpunto = v.idpunto
             JOIN ventas_detalle d ON d.idventa = v.idventa
-            JOIN productos pr ON pr.idproductos = d.idproductos
-            JOIN modopago mp ON mp.idmodopago = v.idmodopago
+            JOIN productos pr     ON pr.idproductos = d.idproductos
+            JOIN ventas_pagos vp  ON vp.idventa = v.idventa
+            JOIN modopago mp      ON mp.idmodopago = vp.idmodopago
             {where_sql}
             ORDER BY v.fecha_hora DESC
         """
@@ -3085,8 +3120,10 @@ def admin_reportes():
         cursor.execute(query, valores)
         ventas = cursor.fetchall()
 
-        total_general = sum(v["subtotal"] for v in ventas)
+        # ================= TOTAL GENERAL (PAGOS REALES) =================
+        total_general = sum(v["importe_pago"] for v in ventas)
 
+        # ================= JORNADA NOMBRE =================
         jornada_nombre = "Todas"
         if idjornada:
             cursor.execute(
@@ -3097,15 +3134,23 @@ def admin_reportes():
             if j:
                 jornada_nombre = j["nombre"]
 
-        cursor.execute("SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC")
+        # ================= COMBOS =================
+        cursor.execute(
+            "SELECT idjornada, nombre FROM jornadas ORDER BY idjornada DESC"
+        )
         jornadas = cursor.fetchall()
 
-        cursor.execute("SELECT idpunto, nombre FROM puntos_venta")
+        cursor.execute(
+            "SELECT idpunto, nombre FROM puntos_venta"
+        )
         cajas = cursor.fetchall()
 
-        cursor.execute("SELECT idproductos, nombre FROM productos")
+        cursor.execute(
+            "SELECT idproductos, nombre FROM productos"
+        )
         productos = cursor.fetchall()
 
+        # ================= RENDER =================
         return render_template(
             "admin_reportes.html",
             ventas=ventas,
@@ -3126,9 +3171,6 @@ def admin_reportes():
             cursor.close()
         if conexion:
             conexion.close()
-
-
-
 
 
 #------------------------------- Grafico -------------------------------
@@ -3238,11 +3280,7 @@ def reporte_cajas():
         if conexion:
             conexion.close()
 
-#--------------------------- Sectores Boleteria --------------------------------
-# ===============================
-# SECTORES ENTRADAS
-# ===============================
-###################################### esta hasta aca sigue la linea de abajo
+
 # ======================
 # RUTA: Sectores Entradas
 # ======================

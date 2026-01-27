@@ -165,6 +165,9 @@ body {
                 <th>Modo de Pago</th>
                 <th>Producto</th>
                 <th>Cant.</th>
+                <th>Cortesía</th>
+                <th>Autorizado por</th>
+
                 <th class="text-end">Subtotal</th>
             </tr>
         </thead>
@@ -177,6 +180,15 @@ body {
                 <td>{{ v.modo_pago }}</td>
                 <td>{{ v.producto }}</td>
                 <td class="text-center">{{ v.cantidad }}</td>
+                <td class="text-center">
+                    {% if v.cortesia %}
+                        ✔
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+
+                <td>{{ v.autorizado or "-" }}</td>
                 <td class="text-end">
                     $ {{ "{:,.2f}".format(v.subtotal)
                         .replace(",", "X")

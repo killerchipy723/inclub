@@ -3,39 +3,65 @@
 
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
-  <div class="fw-semibold">
-    👤 {{ session['nombre'] }}
+  <!-- USUARIO + RELOJ -->
+  <div class="fw-semibold d-flex align-items-center gap-2">
+    <i class="bi bi-person-circle fs-5"></i>
+    <img src="/static/icons/usuario.png" alt="">
+    <span>{{ session['nombre'] }}</span>
     <span class="opacity-75">({{ session['operador'] }})</span>
-    <span class="ms-3" id="reloj"></span>
+    <span class="ms-3 d-flex align-items-center gap-1">
+      <i class="bi bi-clock"></i>
+      <span id="reloj"></span>
+    </span>
   </div>
 
-  <div id="estadoCaja" class="badge bg-secondary ms-2">
+  <!-- ESTADO CAJA -->
+  <div id="estadoCaja" class="badge bg-secondary d-flex align-items-center gap-1">
+    <i class="bi bi-cash-stack"></i>
+    <img src="/static/icons/cerrar caja.png" alt="">
     Caja: --
   </div>
 
   {% if jornada %}
+  <!-- JORNADA + RECAUDACION -->
   <div class="text-center">
-    <div class="fw-bold text-warning">
-      🟢 Jornada activa: {{ jornada.nombre }}
+    <div class="fw-bold text-warning d-flex align-items-center justify-content-center gap-1">
+      <i class="bi bi-play-circle-fill"></i>
+      Jornada activa: {{ jornada.nombre }}
     </div>
-    <div class="fw-bold text-success" id="recaudacionCaja">
-      💰 Recaudación Parcial: $
-      {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
+
+    <div class="fw-bold text-success d-flex align-items-center justify-content-center gap-1"
+         id="recaudacionCaja">
+      <i class="bi bi-currency-dollar"></i>
+      Recaudación Parcial: $
+      {{ "{:,.2f}".format(recaudacion)
+          .replace(",", "X")
+          .replace(".", ",")
+          .replace("X", ".") }}
     </div>
   </div>
   {% endif %}
 
-  <a href="/logout" class="btn btn-danger btn-sm text-white">
-    Cerrar sesión
-  </a>
+  <!-- ACCIONES -->
+  <div class="d-flex align-items-center gap-2">
 
-  <button class="btn btn-danger" onclick="cerrarCaja()">
-    🔒 Cerrar Caja
-  </button>
-</div>
+    <!-- CERRAR SESIÓN -->
+    <a href="/logout"
+       class="btn btn-outline-light btn-sm d-flex align-items-center gap-2">
 
-<nav class="navbar navbar-expand-lg">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/">TicketJets | Sistema de Gestión</a>
+      <img src="/static/icons/cerrar.png"
+           alt="Cerrar sesión"
+           style="width:14px;height:14px;">
+
+      <span>Cerrar sesión</span>
+    </a>
+
+    <!-- CERRAR CAJA -->
+    <button class="btn btn-danger btn-sm d-flex align-items-center gap-1"
+            onclick="cerrarCaja()">
+      <i class="bi bi-lock-fill"></i>
+      Cerrar Caja
+    </button>
+
   </div>
-</nav>
+</div>

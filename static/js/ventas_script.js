@@ -91,13 +91,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
         </tr>
       `);
-
-      if (inputsOcultos) {
-        inputsOcultos.insertAdjacentHTML("beforeend", `
-          <input type="hidden" name="cortesias[]" value="${p.cortesia ? 1 : 0}">
-          <input type="hidden" name="autorizados[]" value="${p.autorizado || ""}">
-        `);
-      }
     });
 
     $("total").textContent = formatoMoneda(calcularTotal());
@@ -169,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
       abrirPagoMixto();
     } else {
       selectModoPago.disabled = false;
+      pagosMixtos = [];
       pagoMixtoConfirmado = false;
     }
   });
@@ -182,12 +176,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (togglePagoCombinado?.checked && !pagoMixtoConfirmado) {
+    if (togglePagoCombinado.checked && !pagoMixtoConfirmado) {
       abrirPagoMixto();
       return;
     }
 
-    registrarVenta(new FormData());
+    registrarVenta();
+    actualizarRecaudacionCaja();
   });
 
   /* =====================================================
@@ -219,15 +214,16 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnAgregarPago")?.addEventListener("click", agregarFilaPago);
 
   $("confirmarPagos")?.addEventListener("click", () => {
+    pagosMixtos = [];
     let suma = 0;
-    let pagos = [];
 
     document.querySelectorAll("#pagosContainer .row").forEach(r => {
       const medio = r.querySelector(".medioPago").value;
       const monto = parseFloat(r.querySelector(".montoPago").value || 0);
+
       if (monto > 0) {
+        pagosMixtos.push({ medio, monto });
         suma += monto;
-        pagos.push({ medio, monto });
       }
     });
 
@@ -236,21 +232,25 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const fd = new FormData();
-    fd.append("pagos_mixtos", JSON.stringify(pagos));
-
     pagoMixtoConfirmado = true;
     bootstrap.Modal.getInstance($("modalPagos")).hide();
-    registrarVenta(fd);
+    registrarVenta();
   });
 
   /* =====================================================
      REGISTRAR VENTA
   ===================================================== */
-  async function registrarVenta(fd) {
+  async function registrarVenta() {
+    const fd = new FormData();
+
     fd.append("cliente", $("idcliente").value);
-    fd.append("modopago", selectModoPago.value);
     fd.append("total", calcularTotal());
+
+    if (togglePagoCombinado.checked) {
+      fd.append("pagos_mixtos", JSON.stringify(pagosMixtos));
+    } else {
+      fd.append("modopago", selectModoPago.value);
+    }
 
     carrito.forEach(p => {
       fd.append("productos[]", p.id);
@@ -260,7 +260,11 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("autorizados[]", p.autorizado || "");
     });
 
-    const res = await fetch("/registrar_venta", { method: "POST", body: fd });
+    const res = await fetch("/registrar_venta", {
+      method: "POST",
+      body: fd
+    });
+
     const data = await res.json();
 
     if (!data.success) {
@@ -269,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     imprimirTicket(data.idventa);
+    actualizarRecaudacionCaja();
     resetearVenta();
   }
 
@@ -296,4 +301,85 @@ document.addEventListener("DOMContentLoaded", () => {
     $("totalVentaModal").textContent = "0";
   }
 
+  // ================= ACTUALIZAR RECAUDACION =================
+async function actualizarRecaudacionCaja() {
+  const res = await fetch("/recaudacion_actual");
+  const data = await res.json();
+
+  const total = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(data.total);
+
+  const div = document.getElementById("recaudacionCaja");
+  if (div) {
+    div.innerHTML = `💰 Recaudación Parcial: $ ${total}`;
+  }
+}
+
+/* =====================================================
+   AUTOCOMPLETE CLIENTES
+===================================================== */
+const clienteInput   = $("clienteInput");
+const listaClientes  = $("listaClientes");
+const idclienteInput = $("idcliente");
+
+clienteInput?.addEventListener("input", async () => {
+  const q = clienteInput.value.trim();
+
+  listaClientes.innerHTML = "";
+  idclienteInput.value = "1"; // Consumidor Final por defecto
+
+  if (q.length < 2) return;
+
+  try {
+    const res = await fetch(`/buscar_clientes?q=${q}`);
+    const clientes = await res.json();
+
+    clientes.forEach(c => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "list-group-item list-group-item-action";
+      btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
+
+      btn.onclick = () => {
+        clienteInput.value = c.apenomb;
+        idclienteInput.value = c.idclientes;
+        listaClientes.innerHTML = "";
+      };
+
+      listaClientes.appendChild(btn);
+    });
+
+  } catch (err) {
+    console.error("Error buscando clientes:", err);
+  }
 });
+
+
+/* =====================================================
+   AUTORIZACION CORTESIA
+===================================================== */
+$("guardarAutorizacion")?.addEventListener("click", () => {
+  const i = $("guardarAutorizacion").dataset.index;
+  const nombre = $("autorizadoInput")?.value.trim();
+
+  if (!nombre) {
+    alert("Ingrese nombre");
+    return;
+  }
+
+  carrito[i].autorizado = nombre;
+  $("autorizadoInput").value = "";
+
+  bootstrap.Modal
+    .getInstance($("modalCortesia"))
+    ?.hide();
+
+  actualizarCarrito();
+});
+
+
+
+});
+

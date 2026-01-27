@@ -53,7 +53,21 @@ td { padding:2px 0; vertical-align:top; }
 <div><b>Venta Nº:</b> {{ idventa }}</div>
 <div><b>Fecha:</b> {{ fecha_hora }}</div>
 <div><b>Operador:</b> {{ session['operador'] }}</div>
+
+
+{% if es_cortesia %}
 <hr>
+<div class="center bold">
+    🎁 VENTA DE CORTESÍA
+</div>
+<div class="center">
+    Autorizado por: {{ autorizado_cortesia }}
+</div>
+{% endif %}
+
+<hr>
+
+
 
 <!-- =========================
      CLIENTE
