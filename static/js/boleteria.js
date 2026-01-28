@@ -286,6 +286,29 @@ function imprimirTicket(idventa) {
   });
 }
 
+
+let registrandoVenta = false;
+
+btnVender.addEventListener("click", async () => {
+  if (registrandoVenta) return; // evita doble envío
+  registrandoVenta = true;
+
+  if (!sectorSelect.value) return alert("⚠️ Seleccione un sector");
+  if (cantidadInput.value <= 0) return alert("⚠️ Cantidad inválida");
+
+  if (togglePagoCombinado.checked && !pagoMixtoConfirmado) {
+    registrandoVenta = false;
+    return alert("⚠️ Complete el pago combinado en el modal");
+  }
+
+  try {
+    await registrarVenta();
+  } finally {
+    registrandoVenta = false;
+  }
+});
+
+
 /* ===============================
    ACTUALIZAR RECAUDACION
 =============================== */
