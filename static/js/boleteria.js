@@ -5,7 +5,7 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   const $ = id => document.getElementById(id);
-  verificarEstadoCaja()
+ 
 
   const formatoMoneda = v =>
     new Intl.NumberFormat("es-AR", {
@@ -35,49 +35,32 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      ESTADO DE CAJA
   ========================= */
-  async function verificarEstadoCaja() {
-  const badge = document.getElementById("estadoCaja");
-  const btnVender = document.getElementById("venderEntrada");
+  async function verificarEstadoBoleteria() {
+    const badge = $("estadoCaja");
+    const btnCobrar = $("venderEntrada");
+    if (!badge) return;
 
-  if (!badge) return;
+    try {
+      const res = await fetch("/estado_caja");
+      const data = await res.json();
 
-  try {
-    const res = await fetch("/estado_caja");
-    const data = await res.json();
-
-    console.log("Estado caja recibido:", data);
-
-    const estado = (data.estado || "").toLowerCase();
-
-    if (estado === "abierto") {
-      badge.innerHTML = "💰 Caja Abierta";
-      badge.className = "badge bg-success d-flex align-items-center gap-1";
-      if (btnVender) btnVender.disabled = false;
-    } else {
-      badge.innerHTML = "🔒 Caja Cerrada";
-      badge.className = "badge bg-danger d-flex align-items-center gap-1";
-      if (btnVender) btnVender.disabled = true;
+      if (data.estado === "abierto") {
+        badge.textContent = "Boleteria Abierta";
+        badge.className = "badge bg-success ms-2";
+        btnCobrar.disabled = false;
+      } else {
+        badge.textContent = "Caja Cerrada";
+        badge.className = "badge bg-danger ms-2";
+        btnCobrar.disabled = true;
+      }
+    } catch {
+      badge.textContent = "Boleteria Cerrada";
+      badge.className = "badge bg-danger ms-2";
+      btnCobrar.disabled = true;
     }
-
-  } catch (e) {
-    console.error("Error consultando estado caja", e);
-    badge.innerHTML = "⚠️ Caja Cerrada";
-    badge.className = "badge bg-danger d-flex align-items-center gap-1";
-    if (btnVender) btnVender.disabled = true;
   }
-}
 
-
-function cerrarCajaUI() {
-  const badge = document.getElementById("estadoCaja");
-  const btnVender = document.getElementById("venderEntrada");
-
-  badge.textContent = "Caja Cerrada";
-  badge.className = "badge bg-danger d-flex align-items-center gap-1";
-  btnVender.disabled = true;
-}
-
-document.addEventListener("DOMContentLoaded", verificarEstadoCaja);
+  verificarEstadoBoleteria();
 
 
   /* =========================
@@ -230,7 +213,7 @@ document.addEventListener("DOMContentLoaded", verificarEstadoCaja);
 
     await imprimirTicket(data.idventa);
     resetearFormulario();
-    verificarEstadoCaja();
+    verificarEstadoBoleteria();
   }
 
   function resetearFormulario() {

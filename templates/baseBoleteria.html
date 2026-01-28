@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>TicketJets | Panel</title>
+
+  <link rel="shortcut icon" href="/static/img/logoJetSmall.png">
+
+  <!-- Bootstrap 5 LOCAL -->
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="/static/styles/cabecera_ventas.css">
+  <link rel="stylesheet" href="/static/icons/bootstrap-icons.css">
+
+</head>
+
+<body>
+
+  {% include 'cabecera_boleteria.html' %}
+
+  {% block contenido %}{% endblock %}
+
+  {% include 'pie.html' %}
+
+  <!-- Bootstrap JS LOCAL -->
+  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
