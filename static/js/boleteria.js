@@ -1,71 +1,44 @@
 // ======================================================
-// BOLETERIA.JS – ESTABLE + CONTROL DE CAJA
+// BOLETERIA.JS – VERSIÓN FINAL LIMPIA Y FUNCIONAL
+// Pago simple / combinado + impresión + UI en vivo
 // ======================================================
 
 document.addEventListener("DOMContentLoaded", () => {
 
+  /* =========================
+     UTILIDADES
+  ========================= */
   const $ = id => document.getElementById(id);
- 
 
   const formatoMoneda = v =>
-    new Intl.NumberFormat("es-AR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(v || 0);
+    new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 
   /* =========================
      REFERENCIAS
   ========================= */
-  const clienteInput = $("clienteInput");
-  const listaClientes = $("listaClientes");
+  const clienteInput   = $("clienteInput");
+  const listaClientes  = $("listaClientes");
   const idclienteInput = $("idcliente");
 
-  const sectorSelect = $("sector");
-  const cantidadInput = $("cantidad");
-  const totalSpan = $("total");
-  const btnVender = $("venderEntrada");
+  const sectorSelect   = $("sector");
+  const cantidadInput  = $("cantidad");
+  const totalSpan      = $("total");
+  const btnVender      = $("venderEntrada");
   const idjornadaInput = $("idjornada");
 
-  const selectModoPago = $("modopago");
+  const selectModoPago      = $("modopago");
   const togglePagoCombinado = $("togglePagoCombinado");
+
+  const recaudacionSpan = $("recaudacionActual");
+  const entradasSpan    = $("entradasVendidas");
 
   let pagosMixtos = [];
   let pagoMixtoConfirmado = false;
+  let modalPagosInstance = null;
 
-  /* =========================
-     ESTADO DE CAJA
-  ========================= */
-  async function verificarEstadoBoleteria() {
-    const badge = $("estadoCaja");
-    const btnCobrar = $("venderEntrada");
-    if (!badge) return;
-
-    try {
-      const res = await fetch("/estado_caja");
-      const data = await res.json();
-
-      if (data.estado === "abierto") {
-        badge.textContent = "Boleteria Abierta";
-        badge.className = "badge bg-success ms-2";
-        btnCobrar.disabled = false;
-      } else {
-        badge.textContent = "Caja Cerrada";
-        badge.className = "badge bg-danger ms-2";
-        btnCobrar.disabled = true;
-      }
-    } catch {
-      badge.textContent = "Boleteria Cerrada";
-      badge.className = "badge bg-danger ms-2";
-      btnCobrar.disabled = true;
-    }
-  }
-
-  verificarEstadoBoleteria();
-
-
-  /* =========================
+  /* ===============================
      AUTOCOMPLETE CLIENTES
-  ========================= */
+  =============================== */
   clienteInput?.addEventListener("input", async () => {
     const q = clienteInput.value.trim();
     listaClientes.innerHTML = "";
@@ -73,29 +46,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (q.length < 2) return;
 
-    const res = await fetch(`/buscar_clientes?q=${q}`);
-    const clientes = await res.json();
+    try {
+      const res = await fetch(`/buscar_clientes?q=${q}`);
+      const clientes = await res.json();
 
-    clientes.forEach(c => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "list-group-item list-group-item-action";
-      btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
-      btn.onclick = () => {
-        clienteInput.value = c.apenomb;
-        idclienteInput.value = c.idclientes;
-        listaClientes.innerHTML = "";
-      };
-      listaClientes.appendChild(btn);
-    });
+      clientes.forEach(c => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "list-group-item list-group-item-action";
+        btn.textContent = `${c.apenomb} – DNI ${c.dni}`;
+        btn.onclick = () => {
+          clienteInput.value = c.apenomb;
+          idclienteInput.value = c.idclientes;
+          listaClientes.innerHTML = "";
+        };
+        listaClientes.appendChild(btn);
+      });
+    } catch (err) {
+      console.error("Error clientes:", err);
+    }
   });
 
-  /* =========================
-     TOTAL
-  ========================= */
+  /* ===============================
+     CALCULAR TOTAL
+  =============================== */
   function calcularTotal() {
-    const opt = sectorSelect.options[sectorSelect.selectedIndex];
-    const precio = opt ? parseFloat(opt.dataset.precio || 0) : 0;
+    const option   = sectorSelect.options[sectorSelect.selectedIndex];
+    const precio   = option ? parseFloat(option.dataset.precio || 0) : 0;
     const cantidad = parseInt(cantidadInput.value || 0);
     const total = precio * cantidad;
     totalSpan.textContent = formatoMoneda(total);
@@ -105,42 +82,53 @@ document.addEventListener("DOMContentLoaded", () => {
   sectorSelect.addEventListener("change", calcularTotal);
   cantidadInput.addEventListener("input", calcularTotal);
 
-  /* =========================
+  /* ===============================
+     TOGGLE PAGO COMBINADO
+  =============================== */
+  togglePagoCombinado?.addEventListener("change", () => {
+    selectModoPago.disabled = togglePagoCombinado.checked;
+    pagosMixtos = [];
+    pagoMixtoConfirmado = false;
+    $("pagosContainer").innerHTML = "";
+    $("totalPagos") && ($("totalPagos").textContent = formatoMoneda(0));
+
+    if (togglePagoCombinado.checked) abrirPagoMixto();
+  });
+
+  /* ===============================
      BOTÓN VENDER
-  ========================= */
+  =============================== */
   btnVender.addEventListener("click", () => {
 
-    if (btnVender.disabled) {
-      alert("❌ La caja está cerrada");
-      return;
-    }
-
-    if (!sectorSelect.value) {
-      alert("Seleccione un sector");
-      return;
-    }
+    if (!sectorSelect.value) return alert("⚠️ Seleccione un sector");
+    if (cantidadInput.value <= 0) return alert("⚠️ Cantidad inválida");
 
     if (togglePagoCombinado.checked && !pagoMixtoConfirmado) {
-      abrirPagoMixto();
-      return;
+      return alert("⚠️ Complete el pago combinado en el modal");
     }
 
     registrarVenta();
   });
 
-  /* =========================
-     PAGO MIXTO
-  ========================= */
+  /* ===============================
+     PAGO COMBINADO (MODAL)
+  =============================== */
   function abrirPagoMixto() {
-    $("pagosContainer").innerHTML = "";
-    $("totalVentaModal").textContent = formatoMoneda(calcularTotal());
+    const container = $("pagosContainer");
+    container.innerHTML = "";
     agregarFilaPago();
-    new bootstrap.Modal($("modalPagos")).show();
+    $("totalVentaModal").textContent = formatoMoneda(calcularTotal());
+
+    if (!modalPagosInstance) modalPagosInstance = new bootstrap.Modal($("modalPagos"));
+    modalPagosInstance.show();
   }
 
   function agregarFilaPago() {
+    const container = $("pagosContainer");
+
     const div = document.createElement("div");
     div.className = "row g-2 mb-2";
+
     div.innerHTML = `
       <div class="col-7">
         <select class="form-select form-select-sm medioPago">
@@ -148,117 +136,167 @@ document.addEventListener("DOMContentLoaded", () => {
         </select>
       </div>
       <div class="col-5">
-        <input type="number" class="form-control form-control-sm montoPago">
+        <input type="number"
+               class="form-control form-control-sm montoPago"
+               min="0"
+               value="0">
       </div>
     `;
-    $("pagosContainer").appendChild(div);
+    container.appendChild(div);
+
+    div.querySelector(".montoPago").addEventListener("input", actualizarTotalPagos);
   }
 
   $("btnAgregarPago")?.addEventListener("click", agregarFilaPago);
+
+  function actualizarTotalPagos() {
+    const montos = document.querySelectorAll("#pagosContainer .montoPago");
+    let suma = 0;
+    montos.forEach(m => suma += parseFloat(m.value || 0));
+    $("totalPagos").textContent = formatoMoneda(suma);
+  }
 
   $("confirmarPagos")?.addEventListener("click", () => {
     pagosMixtos = [];
     let suma = 0;
 
-    document.querySelectorAll(".montoPago").forEach((i, idx) => {
-      const monto = parseFloat(i.value || 0);
+    document.querySelectorAll("#pagosContainer .row").forEach(r => {
+      const medio = r.querySelector(".medioPago").value;
+      const monto = parseFloat(r.querySelector(".montoPago").value || 0);
       if (monto > 0) {
-        pagosMixtos.push({
-          medio: document.querySelectorAll(".medioPago")[idx].value,
-          monto
-        });
+        pagosMixtos.push({ medio, monto });
         suma += monto;
       }
     });
 
-    if (suma !== calcularTotal()) {
-      alert("Los montos no coinciden");
-      return;
+    const totalVenta = calcularTotal();
+    if (Math.round(suma * 100) / 100 !== Math.round(totalVenta * 100) / 100) {
+      return alert("❌ Los montos no coinciden con el total");
     }
 
     pagoMixtoConfirmado = true;
-    bootstrap.Modal.getInstance($("modalPagos")).hide();
-    registrarVenta();
+
+    // ✅ Solo cerrar modal, no registrar venta
+    modalPagosInstance.hide();
   });
 
-  /* =========================
+  /* ===============================
      REGISTRAR VENTA
-  ========================= */
+  =============================== */
   async function registrarVenta() {
     btnVender.disabled = true;
 
+    const totalVenta = calcularTotal();
     const payload = {
       idcliente: idclienteInput.value,
       idsector: sectorSelect.value,
-      cantidad: cantidadInput.value,
-      total: calcularTotal(),
-      idjornada: idjornadaInput.value,
-      modopago: selectModoPago.value,
-      pagos_mixtos: pagosMixtos
+      cantidad: parseInt(cantidadInput.value),
+      total: totalVenta,
+      idjornada: idjornadaInput.value
     };
 
-    const res = await fetch("/registrar_venta_entrada", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    if (togglePagoCombinado.checked) payload.pagos_mixtos = pagosMixtos;
+    else payload.modopago = selectModoPago.value;
 
-    const data = await res.json();
+    try {
+      const res = await fetch("/registrar_venta_entrada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    if (!data.ok) {
-      alert(data.msg);
-      btnVender.disabled = false;
-      return;
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert("❌ " + data.msg);
+        btnVender.disabled = false;
+        return;
+      }
+
+      // ========================
+      // Actualizar resumen en vivo
+      // ========================
+      const actualRecaudacion = parseFloat(
+        recaudacionSpan.textContent.replace(/\./g, "").replace(",", ".")
+      ) || 0;
+
+      recaudacionSpan.textContent = formatoMoneda(actualRecaudacion + totalVenta);
+
+      const actualEntradas = parseInt(entradasSpan.textContent.replace(/\D/g, "")) || 0;
+      entradasSpan.textContent = actualEntradas + payload.cantidad;
+
+      await imprimirTicket(data.idventa);
+      actualizarRecaudacion(payload.total);
+      resetearFormulario();
+    } catch (err) {
+      console.error("Error venta:", err);
+      alert("❌ Error al registrar la venta");
     }
 
-    await imprimirTicket(data.idventa);
-    resetearFormulario();
-    verificarEstadoBoleteria();
+    btnVender.disabled = false;
   }
 
+  /* ===============================
+     RESET FORMULARIO
+  =============================== */
   function resetearFormulario() {
     sectorSelect.selectedIndex = 0;
     cantidadInput.value = 1;
     calcularTotal();
+
+    clienteInput.value = "";
+    idclienteInput.value = "1";
+    listaClientes.innerHTML = "";
+
+    selectModoPago.selectedIndex = 0;
+    selectModoPago.disabled = false;
+    togglePagoCombinado.checked = false;
+
     pagosMixtos = [];
     pagoMixtoConfirmado = false;
-    btnVender.disabled = false;
+
+    $("pagosContainer").innerHTML = "";
+    $("totalPagos") && ($("totalPagos").textContent = formatoMoneda(0));
   }
+
 });
 
-/* =========================
-   CERRAR CAJA
-========================= */
-async function cerrarCaja() {
-  const res = await fetch("/cerrar_caja", { method: "POST" });
-  const data = await res.json();
-
-  if (!data.ok) {
-    alert(data.msg || "Error");
-    return;
-  }
-
-  alert("Caja cerrada");
-  document.getElementById("venderEntrada").disabled = true;
-  document.getElementById("estadoCaja").textContent = "Caja Cerrada";
-  document.getElementById("estadoCaja").className = "badge bg-danger";
-}
-
-/* =========================
+/* ===============================
    IMPRIMIR TICKET
-========================= */
+=============================== */
 function imprimirTicket(idventa) {
   return new Promise(resolve => {
     const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
+    iframe.style.position = "fixed";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
     iframe.src = `/ticket_entrada/${idventa}`;
     document.body.appendChild(iframe);
+
     iframe.onload = () => {
+      // ✅ Solo imprimir una vez, sin focus
       iframe.contentWindow.print();
+
       setTimeout(() => {
         document.body.removeChild(iframe);
         resolve();
-      }, 800);
+      }, 500);
     };
   });
+}
+
+/* ===============================
+   ACTUALIZAR RECAUDACION
+=============================== */
+function actualizarRecaudacion(monto) {
+  const span = document.getElementById("recaudacionParcial");
+  if (!span) return;
+  const actual = parseFloat(span.dataset.valor || 0);
+  const nuevoTotal = actual + monto;
+  span.dataset.valor = nuevoTotal;
+  span.textContent = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(nuevoTotal);
 }
