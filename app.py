@@ -205,8 +205,6 @@ def home_userReg():
         if conexion:
             conexion.close()
 
-
-
 #Ruta Registro de usuarios
 @app.route("/reg_Usu", methods=["POST"])
 def reg_usuario():
@@ -249,7 +247,6 @@ def reg_usuario():
         )
     )
 
-
 #Ruta para Eliminar Usuarios
 @app.route("/delete_Usuario/<int:id>")
 def delete_usuario(id):
@@ -282,8 +279,6 @@ def delete_usuario(id):
             message="Registro Eliminado Correctamente!"
         )
     )
-
-
 
 @app.route("/Update_Usuario/<int:id>", methods=["POST"])
 def update_usuario(id):
@@ -370,7 +365,7 @@ def cerrar_caja():
 def estado_caja():
 
     if "idjornada" not in session or "idpunto" not in session:
-        return jsonify(estado="Cerrada")
+        return jsonify(estado="Cerrado")
 
     conexion = None
     cursor = None
@@ -388,13 +383,13 @@ def estado_caja():
         row = cursor.fetchone()
 
         if not row:
-            return jsonify(estado="Cerrada")
+            return jsonify(estado="Cerrado")
 
         return jsonify(estado=row["estado"].lower())
 
     except Exception as e:
         # fallback seguro
-        return jsonify(estado="Cerrada")
+        return jsonify(estado="Cerrado")
 
     finally:
         if cursor:
@@ -507,8 +502,8 @@ def ticket_cierre_caja():
 def boleteria_home():
 
     # ================= SEGURIDAD =================
-    if "id" not in session or session.get("rol") != "Boleteria":
-        return redirect(url_for("login"))
+    if "id" not in session:
+        return redirect(url_for("home"))
 
     conexion = None
     cursor = None
@@ -734,11 +729,6 @@ def registrar_venta_entrada():
             cursor.close()
         if conexion:
             conexion.close()
-
-    
-
-
-
 
 #Reporte Boleteria
 @app.route("/reporte_boleteria")

@@ -1,102 +1,66 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TicketsJets | Panel</title>
-    <link rel="shortcut icon" href="/static/img/logoJetSmall.png" type="image/x-icon">
+  <meta charset="UTF-8">
+  <title>TicketsJets | Boletería</title>
 
-    <!-- Bootstrap LOCAL -->
-    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/styles/cabecera_ventas.css">
-
-    <!-- Estilos personalizados -->
-    
+  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/styles/cabecera_ventas.css">
 </head>
 
 <script src="/static/js/mensajes.js"></script>
 
 <body>
 
-<!-- ====================== BARRA SUPERIOR ====================== -->
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
-    <!-- Usuario / Rol / Reloj -->
-  <!-- USUARIO + RELOJ -->
+  <!-- USUARIO -->
   <div class="fw-semibold d-flex align-items-center gap-2">
-    <i class="bi bi-person-circle fs-5"></i>
     <img src="/static/icons/usuario.png" alt="">
     <span>{{ session['nombre'] }}</span>
     <span class="opacity-75">({{ session['operador'] }})</span>
     <span class="ms-3 d-flex align-items-center gap-1">
-      <i class="bi bi-clock"></i>
       <span id="reloj"></span>
     </span>
   </div>
 
-    <!-- Jornada + Recaudación -->
-    {% if jornada %}
-    <div class="text-center">
-        <div class="fw-bold text-warning">
-            🟢 Jornada activa: {{ jornada.nombre }}
-        </div>
-        <div class="fw-bold text-success">
-  💰 Recaudación Parcial: $
-  <span id="recaudacionParcial"
-        data-valor="{{ recaudacion }}">
-    {{ "{:,.2f}".format(recaudacion)
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".") }}
-  </span>
-</div>
-
+  <!-- JORNADA / RECAUDACION -->
+  {% if jornada %}
+  <div class="text-center">
+    <div class="fw-bold text-warning">
+      🟢 Jornada activa: {{ jornada.nombre }}
     </div>
-    {% endif %}
+    <div class="fw-bold text-success">
+      💰 Recaudación Parcial: $
+      <span id="recaudacionParcial"
+            data-valor="{{ recaudacion }}">
+        {{ "{:,.2f}".format(recaudacion)
+          .replace(",", "X")
+          .replace(".", ",")
+          .replace("X", ".") }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
 
-     <!-- ESTADO CAJA -->
-  <div id="estadoCaja" class="badge bg-secondary d-flex align-items-center gap-1">
-    <i class="bi bi-cash-stack"></i>
-    <img src="/static/icons/cerrar caja.png" alt="">
+  <!-- ESTADO CAJA -->
+  <div id="estadoCajaB" class="badge bg-secondary">
     Caja: --
   </div>
 
-    <!-- CERRAR CAJA -->
-    <button class="btn btn-danger btn-sm d-flex align-items-center gap-1"
-            onclick="cerrarCaja()">
-      <i class="bi bi-lock-fill"></i>
-      Cerrar Caja
-    </button>
+  <!-- CERRAR CAJA -->
+  <button class="btn btn-danger btn-sm"
+          onclick="cerrarCaja()">
+    Cerrar Caja
+  </button>
 
-    <!-- Logout -->
-    <div>
-        <a href="/logout" class="btn btn-danger btn-sm text-white px-3 py-2">
-            Cerrar sesión
-        </a>
-    </div>
+  <!-- LOGOUT -->
+  <a href="/logout" class="btn btn-danger btn-sm">
+    Salir
+  </a>
 
 </div>
 
-<!-- ====================== NAVBAR ====================== -->
-<nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">TicketJets | Sistema de Gestión</a>
-
-        <button class="navbar-toggler bg-danger" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse justify-content-end" id="menu">
-            <ul class="navbar-nav">
-                <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
-                <li class="nav-item"><a class="nav-link" href="/ventas">Boleteria</a></li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<!-- Bootstrap JS LOCAL -->
 <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-
 </body>
 </html>
