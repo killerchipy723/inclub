@@ -542,6 +542,7 @@ def boleteria_home():
             )
 
         idjornada = jornada["idjornada"]
+        session["idjornada"] = idjornada
 
         # ================= SECTORES =================
         cursor.execute("""
