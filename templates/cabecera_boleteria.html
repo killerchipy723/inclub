@@ -22,11 +22,17 @@
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
     <!-- Usuario / Rol / Reloj -->
-    <div class="fw-semibold">
-        👤 {{ usuario }}
-        <span class="opacity-75">({{ rol }})</span>
-        <span class="ms-3" id="reloj"></span>
-    </div>
+  <!-- USUARIO + RELOJ -->
+  <div class="fw-semibold d-flex align-items-center gap-2">
+    <i class="bi bi-person-circle fs-5"></i>
+    <img src="/static/icons/usuario.png" alt="">
+    <span>{{ session['nombre'] }}</span>
+    <span class="opacity-75">({{ session['operador'] }})</span>
+    <span class="ms-3 d-flex align-items-center gap-1">
+      <i class="bi bi-clock"></i>
+      <span id="reloj"></span>
+    </span>
+  </div>
 
     <!-- Jornada + Recaudación -->
     {% if jornada %}
@@ -35,10 +41,32 @@
             🟢 Jornada activa: {{ jornada.nombre }}
         </div>
         <div class="fw-bold text-success">
-            💰 Recaudación Parcial: $ {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
-        </div>
+  💰 Recaudación Parcial: $
+  <span id="recaudacionParcial"
+        data-valor="{{ recaudacion }}">
+    {{ "{:,.2f}".format(recaudacion)
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".") }}
+  </span>
+</div>
+
     </div>
     {% endif %}
+
+     <!-- ESTADO CAJA -->
+  <div id="estadoCaja" class="badge bg-secondary d-flex align-items-center gap-1">
+    <i class="bi bi-cash-stack"></i>
+    <img src="/static/icons/cerrar caja.png" alt="">
+    Caja: --
+  </div>
+
+    <!-- CERRAR CAJA -->
+    <button class="btn btn-danger btn-sm d-flex align-items-center gap-1"
+            onclick="cerrarCaja()">
+      <i class="bi bi-lock-fill"></i>
+      Cerrar Caja
+    </button>
 
     <!-- Logout -->
     <div>

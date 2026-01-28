@@ -527,6 +527,13 @@ def boleteria_home():
         """)
         jornada = cursor.fetchone()
 
+        cursor.execute("""
+            SELECT idmodopago, modo
+            FROM modopago
+            ORDER BY idmodopago ASC
+        """)
+        modopago = cursor.fetchall()
+
         if not jornada:
             return render_template(
                 "boleteria.html",
@@ -580,6 +587,7 @@ def boleteria_home():
             jornada=jornada,
             sectores=sectores,
             recaudacion=recaudacion,
+            modopago=modopago,
             entradas_vendidas=entradas_vendidas,
             usuario=session["nombre"],
             rol=session["rol"]
@@ -604,125 +612,132 @@ def registrar_venta_entrada():
     if "id" not in session:
         return jsonify({"ok": False, "msg": "Sesión expirada"}), 401
 
-    conexion = getConnection()
-    cursor = conexion.cursor(pymysql.cursors.DictCursor)
-
+    conexion = None
+    cursor = None
 
     try:
         data = request.json
         print("DATA RECIBIDA:", data)
 
-        idcliente = data["idcliente"]
-        idsector = data["idsector"]
-        cantidad = int(data["cantidad"])
-        total = float(data["total"])
-        idjornada = data["idjornada"]
         idusuario = session["id"]
+        idjornada = data["idjornada"]
+        idcliente = data["idcliente"]
+        idsector  = data["idsector"]
+        cantidad  = int(data["cantidad"])
+        total     = float(data["total"])
 
-        # 1️⃣ CABECERA
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        # ================= VALIDAR CAJA ABIERTA =================
+      
+
+        # ================= ARMAR PAGOS =================
+        pagos = []
+
+        if "pagos_mixtos" in data:
+            for p in data["pagos_mixtos"]:
+                pagos.append({
+                    "idmodopago": int(p["medio"]),
+                    "importe": float(p["monto"])
+                })
+        else:
+            pagos.append({
+                "idmodopago": int(data["modopago"]),
+                "importe": total
+            })
+
+        # ================= VALIDAR TOTAL =================
+        suma_pagos = round(sum(p["importe"] for p in pagos), 2)
+        if round(total, 2) != suma_pagos:
+            return jsonify({
+                "ok": False,
+                "msg": "La suma de los pagos no coincide con el total"
+            }), 400
+
+        # ================= ID MODO PAGO CABECERA =================
+        idmodopago_venta = pagos[0]["idmodopago"] if len(pagos) == 1 else None
+
+        # ================= CABECERA =================
         cursor.execute("""
             INSERT INTO ventas_entradas
-            (idjornada, idusuario, cliente, total, estado)
-            VALUES (%s, %s, %s, %s, 'OK')
-        """, (idjornada, idusuario, idcliente, total))
+            (idjornada, idusuario, cliente, idmodopago, total, estado)
+            VALUES (%s,%s,%s,%s,%s,'OK')
+        """, (
+            idjornada,
+            idusuario,
+            idcliente,
+            idmodopago_venta,
+            total
+        ))
 
         idventa = cursor.lastrowid
 
-        # 2️⃣ PRECIO SECTOR
+        # ================= PRECIO SECTOR =================
         cursor.execute("""
             SELECT precio
             FROM sectores_entradas
             WHERE idsector = %s AND estado = 'Activo'
         """, (idsector,))
-
         sector = cursor.fetchone()
+
         if not sector:
             raise Exception("Sector no encontrado")
 
         precio = float(sector["precio"])
-
         subtotal = precio * cantidad
 
-        # 3️⃣ DETALLE
+        # ================= DETALLE =================
         cursor.execute("""
             INSERT INTO ventas_entradas_detalle
             (idventa, idsector, cantidad, precio_unitario, subtotal)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (idventa, idsector, cantidad, precio, subtotal))
+            VALUES (%s,%s,%s,%s,%s)
+        """, (
+            idventa,
+            idsector,
+            cantidad,
+            precio,
+            subtotal
+        ))
+
+        # ================= PAGOS =================
+        for p in pagos:
+            cursor.execute("""
+                INSERT INTO ventas_entradas_pagos
+                (idventa, idmodopago, importe)
+                VALUES (%s,%s,%s)
+            """, (
+                idventa,
+                p["idmodopago"],
+                p["importe"]
+            ))
 
         conexion.commit()
-        conexion.close()
 
         return jsonify({
             "ok": True,
             "msg": "Entrada emitida correctamente",
             "idventa": idventa
-})
-
-
-    except Exception as e:
-        print("ERROR REGISTRAR VENTA:", e)
-        conexion.rollback()
-        conexion.close()
-        return jsonify({"ok": False, "msg": str(e)}), 500
-    
-
-#RUTA PARA TICKET DE VENTA
-@app.route("/ticket_entrada/<int:idventa>")
-def ticket_entrada(idventa):
-
-    con = None
-    cur = None
-
-    try:
-        con = getConnection()
-        cur = con.cursor(pymysql.cursors.DictCursor)
-
-        # ================= CABECERA =================
-        cur.execute("""
-            SELECT 
-                v.idventa,
-                v.fecha_emision,
-                v.total,
-                c.apenomb AS cliente,                
-                j.nombre AS jornada,
-                u.nombre AS usuario           
-            FROM ventas_entradas v
-            JOIN jornadas j ON j.idjornada = v.idjornada
-            JOIN usuarios u ON u.idusuarios = v.idusuario
-            JOIN clientes c ON c.idclientes = v.cliente        
-            WHERE v.idventa = %s
-        """, (idventa,))
-        venta = cur.fetchone()
-
-        # ================= DETALLE =================
-        cur.execute("""
-            SELECT 
-                s.nombre AS sector,
-                d.cantidad,
-                d.precio_unitario,
-                d.subtotal
-            FROM ventas_entradas_detalle d
-            JOIN sectores_entradas s ON s.idsector = d.idsector
-            WHERE d.idventa = %s
-        """, (idventa,))
-        detalle = cur.fetchall()
-
-        return render_template(
-            "ticket_entrada.html",
-            venta=venta,
-            detalle=detalle
-        )
+        })
 
     except Exception as e:
-        print("ERROR TICKET ENTRADA:", e)
-        return "Error al generar ticket", 500
+        print("ERROR REGISTRAR ENTRADA:", e)
+        if conexion:
+            conexion.rollback()
+        return jsonify({
+            "ok": False,
+            "msg": str(e)
+        }), 500
 
     finally:
-        if cur:
-            cur.close()
-        if con:
-            con.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+    
+
+
 
 
 #Reporte Boleteria
@@ -2770,7 +2785,7 @@ def delete_Modopago(id):
         url_for("home_Modopago", message="Modo de Pago eliminado correctamente")
     )
 
-#------------------------------ TIKET DE VENTA ----------------------------------
+#------------------------------ TIKETS  ----------------------------------
 #Ticket de venta 
 @app.route("/ticket/<int:idventa>")
 def ticket(idventa):
@@ -2914,7 +2929,71 @@ def ver_ticket(token):
         if conexion:
             conexion.close()
 
+#RUTA PARA TICKET DE VENTA DE ENTRADAS
+@app.route("/ticket_entrada/<int:idventa>")
+def ticket_entrada(idventa):
 
+    con = None
+    cur = None
+
+    try:
+        con = getConnection()
+        cur = con.cursor(pymysql.cursors.DictCursor)
+
+        # ================= CABECERA =================
+        cur.execute("""
+            SELECT 
+                v.idventa,
+                v.fecha_emision,
+                v.total,
+                c.apenomb AS cliente,                
+                j.nombre AS jornada,
+                u.nombre AS usuario           
+            FROM ventas_entradas v
+            JOIN jornadas j ON j.idjornada = v.idjornada
+            JOIN usuarios u ON u.idusuarios = v.idusuario
+            JOIN clientes c ON c.idclientes = v.cliente        
+            WHERE v.idventa = %s
+        """, (idventa,))
+        venta = cur.fetchone()
+
+        # ================= DETALLE =================
+        cur.execute("""
+            SELECT 
+                s.nombre AS sector,
+                d.cantidad,
+                d.precio_unitario,
+                d.subtotal
+            FROM ventas_entradas_detalle d
+            JOIN sectores_entradas s ON s.idsector = d.idsector
+            WHERE d.idventa = %s
+        """, (idventa,))
+        detalle = cur.fetchall()
+
+        cur.execute("""
+            SELECT mp.modo, vp.importe
+            FROM ventas_entradas_pagos vp
+            JOIN modopago mp ON mp.idmodopago = vp.idmodopago
+            WHERE vp.idventa = %s
+        """, (idventa,))
+        pagos = cur.fetchall()
+
+        return render_template(
+            "ticket_entrada.html",
+            venta=venta,
+            detalle=detalle,
+            pagos=pagos
+        )
+
+    except Exception as e:
+        print("ERROR TICKET ENTRADA:", e)
+        return "Error al generar ticket", 500
+
+    finally:
+        if cur:
+            cur.close()
+        if con:
+            con.close()
 #-----------------------------REPORTES-----------------------------------
 @app.route("/admin/dashboard")
 def admin_dashboard():

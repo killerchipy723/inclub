@@ -1,9 +1,19 @@
 Que modificar en la base de datos 
 
-####### Tabla ventas_pagos: quitar mixto y agregar alguna otra
-        
-####### Tabla Ventas modificar a not nul el campo idmodopago: 
+#### tabla para boleteria
 
-        ALTER TABLE ventas
-        MODIFY idmodopago INT NULL;
+CREATE TABLE ventas_entradas_pagos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    idventa INT NOT NULL,
+    idmodopago INT NOT NULL,
+    importe DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (idventa) REFERENCES ventas_entradas(idventa)
+);
+
+### tabla ventas_entradas (Actualizacion importante)
+
+ALTER TABLE ventas_entradas
+ADD COLUMN idmodopago INT NULL AFTER cliente;
+
+
 

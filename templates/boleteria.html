@@ -1,7 +1,6 @@
 {% include '/cabecera_boleteria.html' %}
 
 <div class="container-fluid mt-3">
-
   <div class="row g-3">
 
     <!-- ================= COLUMNA IZQUIERDA ================= -->
@@ -24,33 +23,41 @@
             <!-- CLIENTE -->
             <label class="form-label fw-semibold small">Cliente</label>
             <div class="position-relative mb-2">
+
               <input type="text"
                      id="clienteInput"
                      class="form-control form-control-sm"
                      placeholder="Consumidor Final"
                      autocomplete="off">
 
-              <input type="hidden" id="idcliente" name="cliente" value="1" required>
+              <input type="hidden" id="idcliente" value="1" required>
               <input type="hidden" id="idjornada" value="{{ jornada.idjornada }}">
 
-              <div id="listaClientes" class="list-group position-absolute w-100"></div>
+              <div id="listaClientes"
+                   class="list-group position-absolute w-100"></div>
 
               <button type="button"
                       class="btn btn-outline-primary btn-sm mt-1 w-100"
                       data-bs-toggle="modal"
                       data-bs-target="#modalCliente">
-                ➕ Agregar Nuevos Cliente
+                ➕ Agregar nuevo cliente
               </button>
             </div>
 
             <!-- SECTOR -->
             <label class="form-label fw-semibold small">Sector</label>
-            <select id="sector" class="form-select form-select-sm mb-2" required>
+            <select id="sector"
+                    class="form-select form-select-sm mb-2"
+                    required>
               <option value="">Seleccionar</option>
               {% for s in sectores %}
-              <option value="{{ s.idsector }}" data-precio="{{ s.precio }}">
+              <option value="{{ s.idsector }}"
+                      data-precio="{{ s.precio }}">
                 {{ s.nombre }} —
-                $ {{ "{:,.2f}".format(s.precio).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                $ {{ "{:,.2f}".format(s.precio)
+                      .replace(",", "X")
+                      .replace(".", ",")
+                      .replace("X", ".") }}
               </option>
               {% endfor %}
             </select>
@@ -67,11 +74,10 @@
             <button type="button"
                     id="venderEntrada"
                     class="btn btn-success w-100 py-2 fw-bold">
-              🎫 Emitir Entrada
+              🎫 Emitir entrada
             </button>
 
           </form>
-
         </div>
       </div>
     </div>
@@ -83,16 +89,23 @@
       <div class="card shadow-sm mb-2">
         <div class="card-body py-3">
 
-          <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="d-flex justify-content-between mb-1">
             <span class="text-muted small">Recaudación</span>
             <span class="fw-bold text-success">
-              $ {{ "{:,.2f}".format(recaudacion).replace(",", "X").replace(".", ",").replace("X", ".") }}
+              $ <span id="recaudacionActual">
+                {{ "{:,.2f}".format(recaudacion)
+                      .replace(",", "X")
+                      .replace(".", ",")
+                      .replace("X", ".") }}
+              </span>
             </span>
           </div>
 
-          <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex justify-content-between mb-2">
             <span class="text-muted small">Entradas</span>
-            <span class="fw-bold">{{ entradas_vendidas }}</span>
+            <span class="fw-bold" id="entradasVendidas">
+              {{ entradas_vendidas }}
+            </span>
           </div>
 
           <hr class="my-2">
@@ -100,8 +113,39 @@
           <div class="text-end">
             <span class="text-muted small">Total</span>
             <div class="fs-3 fw-bold text-primary">
-              $ <span id="total">0,00</span>
+              $ <span id="total">0</span>
             </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ================= MODO DE PAGO ================= -->
+      <div class="card shadow-sm mb-2">
+        <div class="card-body py-3">
+
+          <label class="form-label fw-semibold small">
+            Modo de pago
+          </label>
+
+          <select id="modopago"
+                  name="modopago"
+                  class="form-select form-select-sm">
+            {% for m in modopago %}
+            <option value="{{ m.idmodopago }}">
+              {{ m.modo }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="togglePagoCombinado">
+            <label class="form-check-label small"
+                   for="togglePagoCombinado">
+              Pago combinado
+            </label>
           </div>
 
         </div>
@@ -126,23 +170,96 @@
       <form action="/guardar_ClientesMODAL" method="post">
 
         <div class="modal-header py-2">
-          <h6 class="modal-title">Nuevo Cliente</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h6 class="modal-title">Nuevo cliente</h6>
+          <button type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"></button>
         </div>
 
         <div class="modal-body py-2">
-          <input class="form-control form-control-sm mb-1" name="apenomb" placeholder="Apellido y Nombre" required>
-          <input class="form-control form-control-sm mb-1" name="dni" placeholder="Documento" required>
-          <input class="form-control form-control-sm mb-1" name="cuil" placeholder="CUIT" required>
-          <input class="form-control form-control-sm mb-1" name="correo" placeholder="Correo" required>
-          <input class="form-control form-control-sm mb-1" type="date" name="fecha_nacimiento" required>
+          <input class="form-control form-control-sm mb-1"
+                 name="apenomb"
+                 placeholder="Apellido y Nombre"
+                 required>
+          <input class="form-control form-control-sm mb-1"
+                 name="dni"
+                 placeholder="Documento"
+                 required>
+          <input class="form-control form-control-sm mb-1"
+                 name="cuil"
+                 placeholder="CUIT"
+                 required>
+          <input class="form-control form-control-sm mb-1"
+                 name="correo"
+                 placeholder="Correo"
+                 required>
+          <input class="form-control form-control-sm mb-1"
+                 type="date"
+                 name="fecha_nacimiento"
+                 required>
         </div>
 
         <div class="modal-footer py-2">
-          <button class="btn btn-primary btn-sm w-100">Guardar</button>
+          <button class="btn btn-primary btn-sm w-100">
+            Guardar
+          </button>
         </div>
 
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL PAGOS MULTIPLES ================= -->
+<div class="modal fade" id="modalPagos" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Pago con múltiples medios</h5>
+        <button type="button"
+                class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="mb-2">
+          <strong>Total a cobrar:</strong>
+          $ <span id="totalVentaModal">0</span>
+        </div>
+
+        <div id="pagosContainer">
+          <!-- filas dinámicas por JS -->
+        </div>
+
+        <button type="button"
+                class="btn btn-outline-light btn-sm w-100 mt-2"
+                id="btnAgregarPago">
+          ➕ Agregar medio de pago
+        </button>
+
+        <div class="mt-3 text-end">
+          <strong>Total ingresado:</strong>
+          $ <span id="totalPagos">0</span>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal">
+          Cancelar
+        </button>
+
+        <button type="button"
+                class="btn btn-success"
+                id="confirmarPagos">
+          Confirmar pago
+        </button>
+      </div>
+
     </div>
   </div>
 </div>

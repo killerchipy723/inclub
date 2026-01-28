@@ -65,7 +65,7 @@ hr {
 <div class="small">
 <b>Ticket Nº:</b> {{ venta.idventa }}<br>
 <b>Fecha:</b> {{ venta.fecha_emision.strftime("%d/%m/%Y %H:%M") }}<br>
-<b>Usuario:</b> {{ venta.usuario }}
+<div><b>Operador:</b> {{ session['operador'] }}</div>
 </div>
 
 <hr>
@@ -86,6 +86,26 @@ Cant: {{ d.cantidad }} x $
 </div>
 {% endfor %}
 
+<hr>
+
+<hr>
+
+<!-- =========================
+     FORMAS DE PAGO DETALLADAS
+========================= -->
+<div class="bold">Forma de Pago</div>
+<table>
+{% for p in pagos %}
+<tr>
+    <td>
+        {{ p.modo }}
+        {% set dots = 30 - p.modo|length %}
+        {{ "." * dots }}
+    </td>
+    <td class="right">$ {{ "%.2f"|format(p.importe) }}</td>
+</tr>
+{% endfor %}
+</table>
 <hr>
 
 <!-- ================= TOTAL ================= -->
