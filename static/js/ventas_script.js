@@ -380,6 +380,41 @@ $("guardarAutorizacion")?.addEventListener("click", () => {
 });
 
 
+/* =====================================================
+     CERRAR CAJA
+  ===================================================== */
+    window.cerrarCaja = async function cerrarCaja() {
+    if (!confirm("¿Confirmar cierre de caja?")) return;
+
+    try {
+      const res = await fetch("/cerrar_caja", { method: "POST" });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.msg || "Error al cerrar caja");
+        return;
+      }
+
+      imprimirCierreCaja();
+      verificarEstadoCaja();
+
+    } catch (error) {
+      console.error("Error cerrando caja:", error);
+      alert("Error de comunicación con el servidor");
+    }
+  };
+
+
+  function imprimirCierreCaja() {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "/ticket_cierre_caja";
+    document.body.appendChild(iframe);
+    iframe.onload = () => iframe.contentWindow.print();
+  }
 
 });
+
+
+ 
 

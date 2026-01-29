@@ -1,0 +1,162 @@
+/* =====================================================
+   TOP BAR PROFESIONAL – BOLETERÍA
+===================================================== */
+.top-bar {
+  background: linear-gradient(135deg, #1b1f23, #2a2f35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+  font-size: 0.95rem;
+}
+
+/* =====================================================
+   BLOQUE USUARIO
+===================================================== */
+.top-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-user img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.top-user .nombre {
+  font-weight: 600;
+}
+
+.top-user .rol {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* =====================================================
+   RELOJ
+===================================================== */
+.top-clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+/* =====================================================
+   ESTADO CAJA
+===================================================== */
+#estadoCaja {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* =====================================================
+   JORNADA
+===================================================== */
+.top-jornada {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.top-jornada .nombre {
+  font-weight: 600;
+  color: #ffc107;
+}
+
+.top-jornada .recaudacion {
+  font-weight: 700;
+  color: #28a745;
+}
+
+/* =====================================================
+   BOTONES PRO (SOBRE BOOTSTRAP)
+===================================================== */
+.btn.btn-pro {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s ease;
+}
+
+/* Hover / Focus */
+.btn.btn-pro:hover,
+.btn.btn-pro:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+  border: none;
+}
+
+/* Active */
+.btn.btn-pro:active {
+  transform: scale(0.96);
+}
+
+/* =====================================================
+   VARIANTES DE BOTÓN
+===================================================== */
+.btn.btn-cerrar-caja {
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-bg: transparent;
+  --bs-btn-hover-border-color: transparent;
+
+  background: linear-gradient(135deg, #dc3545, #a71d2a);
+  color: #fff;
+}
+
+
+.btn.btn-logout {
+  background: linear-gradient(135deg, #6c757d, #343a40);
+  color: #fff;
+}
+
+/* =====================================================
+   ICONOS EN BOTONES
+===================================================== */
+.btn.btn-pro i {
+  font-size: 1.05rem;
+  line-height: 1;
+  vertical-align: middle;
+  opacity: 0.95;
+  transition: transform 0.2s ease;
+}
+
+.btn.btn-pro:hover i {
+  transform: scale(1.08);
+}
+
+.btn.btn-logout i {
+  opacity: 0.85;
+}
+
+
+
+
+/* =====================================================
+   AJUSTES RESPONSIVE
+===================================================== */
+@media (max-width: 992px) {
+  .top-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .top-jornada {
+    width: 100%;
+  }
+}

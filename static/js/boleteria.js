@@ -36,6 +36,36 @@ document.addEventListener("DOMContentLoaded", () => {
   let pagoMixtoConfirmado = false;
   let modalPagosInstance = null;
 
+   /* =========================
+     ESTADO DE CAJA
+  ========================= */
+  async function verificarEstadoBoleteria() {
+    const badge = $("estadoCaja");
+    const btnCobrar = $("venderEntrada");
+    if (!badge) return;
+
+    try {
+      const res = await fetch("/estado_caja");
+      const data = await res.json();
+
+      if (data.estado === "abierto") {
+        badge.textContent = "Boleteria Abierta";
+        badge.className = "badge bg-success ms-2";
+        btnCobrar.disabled = false;
+      } else {
+        badge.textContent = "Caja Cerrada";
+        badge.className = "badge bg-danger ms-2";
+        btnCobrar.disabled = true;
+      }
+    } catch {
+      badge.textContent = "Boleteria Cerrada";
+      badge.className = "badge bg-danger ms-2";
+      btnCobrar.disabled = true;
+    }
+  }
+
+  verificarEstadoBoleteria();
+
   /* ===============================
      AUTOCOMPLETE CLIENTES
   =============================== */
@@ -309,6 +339,28 @@ btnVender.addEventListener("click", async () => {
 });
 
 
+/* =========================
+   CERRAR CAJA
+========================= */
+async function cerrarCaja() {
+  const res = await fetch("/cerrar_caja", { method: "POST" });
+  const data = await res.json();
+
+  if (!data.ok) {
+    alert(data.msg || "Error");
+    return;
+  }
+
+
+  document.getElementById("venderEntrada").disabled = true;
+  document.getElementById("estadoCaja").textContent = "Caja Cerrada";
+  document.getElementById("estadoCaja").className = "badge bg-danger";
+}
+
+
+
+
+
 /* ===============================
    ACTUALIZAR RECAUDACION
 =============================== */
@@ -323,3 +375,5 @@ function actualizarRecaudacion(monto) {
     maximumFractionDigits: 2
   }).format(nuevoTotal);
 }
+
+

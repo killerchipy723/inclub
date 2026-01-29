@@ -598,8 +598,9 @@ def boleteria_home():
                 error="No hay jornada activa"
             )
 
+        session["idjornada"] = jornada["idjornada"]
         idjornada = jornada["idjornada"]
-        session["idjornada"] = idjornada  # mantiene comportamiento original
+        idpunto = session.get("idpunto") 
 
         # =========================================================
         # 🎫 SECTORES

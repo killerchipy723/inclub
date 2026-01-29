@@ -1,37 +1,39 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>TicketsJets | Boletería</title>
-
-  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/static/styles/cabecera_ventas.css">
-</head>
-
-<script src="/static/js/mensajes.js"></script>
-
-<body>
-
 <div class="top-bar p-3 d-flex justify-content-between align-items-center text-white">
 
   <!-- USUARIO -->
-  <div class="fw-semibold d-flex align-items-center gap-2">
-    <img src="/static/icons/usuario.png" alt="">
-    <span>{{ session['nombre'] }}</span>
-    <span class="opacity-75">({{ session['operador'] }})</span>
-    <span class="ms-3 d-flex align-items-center gap-1">
+  <div class="top-user">
+    <img src="/static/icons/usuario.png" alt="Usuario">
+    <div>
+      <div class="nombre">
+        <i class="bi bi-person-fill me-1"></i>
+        {{ session['nombre'] }}
+      </div>
+      <div class="rol">
+        {{ session['operador'] }}
+      </div>
+    </div>
+
+    <div class="top-clock">
+      <i class="bi bi-clock-fill"></i>
       <span id="reloj"></span>
-    </span>
+    </div>
   </div>
 
-  <!-- JORNADA / RECAUDACION -->
+  <!-- ESTADO CAJA -->
+  <div id="estadoCaja" class="badge bg-secondary">
+    <i class="bi bi-cash-stack"></i>
+    Caja: --
+  </div>
+
+  <!-- JORNADA -->
   {% if jornada %}
-  <div class="text-center">
-    <div class="fw-bold text-warning">
-      🟢 Jornada activa: {{ jornada.nombre }}
+  <div class="top-jornada">
+    <div class="nombre">
+      <i class="bi bi-play-circle-fill me-1"></i>
+      {{ jornada.nombre }}
     </div>
-    <div class="fw-bold text-success">
-      💰 Recaudación Parcial: $
+    <div class="recaudacion">
+      <i class="bi bi-currency-dollar me-1"></i>
       <span id="recaudacionParcial"
             data-valor="{{ recaudacion }}">
         {{ "{:,.2f}".format(recaudacion)
@@ -43,27 +45,27 @@
   </div>
   {% endif %}
 
-  <!-- ESTADO CAJA -->
-  <div id="estadoCaja" class="badge bg-secondary d-flex align-items-center gap-1">
-    <i class="bi bi-cash-stack"></i>
-    <img src="" alt="">
-    Caja: --
+  <!-- ACCIONES -->
+  <div class="d-flex gap-2">
+
+    <button
+  class="btn btn-pro btn-cerrar-caja"
+  data-bs-toggle="modal"
+  data-bs-target="#modalCerrarCaja">
+
+  <img src="/static/icons/cerrar_caja.png" class="btn-icon" alt="">
+  Cerrar Caja
+</button>
+
+
+    <a href="/logout" class="btn btn-pro btn-logout btn-sm">
+      <i class="bi bi-box-arrow-right me-1"></i>
+      Logout
+    </a>
+
   </div>
-
-  <!-- CERRAR CAJA -->
-  <button class="btn btn-danger btn-sm"
-          onclick="cerrarCaja()">
-    Cerrar Caja
-  </button>
-
-  <!-- LOGOUT -->
-  <a href="/logout" class="btn btn-danger btn-sm">
-    Salir
-  </a>
-
 </div>
 
 <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/boleteria.js"></script>
-</body>
-</html>
+
