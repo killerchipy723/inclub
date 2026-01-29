@@ -211,11 +211,11 @@ def reg_usuario():
     if "id" not in session or session.get("rol") != "Administrador":
         return redirect(url_for("home"))
 
-    nombre = request.form["nombre"].upper()
+    nombre = request.form["nombre"].upper().strip()
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
-    operador = request.form["operador"].upper()
+    operador = request.form["operador"].upper().strip()
 
     conexion = None
     cursor = None
@@ -224,15 +224,24 @@ def reg_usuario():
         conexion = getConnection()
         cursor = conexion.cursor()
 
-        cursor.execute(
-            """
-            INSERT INTO usuarios (nombre, clave, rol, estado,operador)
-            VALUES (%s, %s, %s, %s,%s)
-            """,
-            (nombre, clave, rol, estado,operador)
-        )
+        # 🔹 Verificar si ya existe el usuario (evita choques)
+        cursor.execute("SELECT 1 FROM usuarios WHERE nombre = %s LIMIT 1", (nombre,))
+        if cursor.fetchone():
+            return redirect(url_for("home_userReg", message="El usuario ya existe"))
 
-        conexion.commit()
+        # 🔹 Insertar
+        cursor.execute("""
+            INSERT INTO usuarios (nombre, clave, rol, estado, operador)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (nombre, clave, rol, estado, operador))
+
+        conexion.commit()   # ✅ GUARDA DEFINITIVO
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()   # 🔥 LIBERA BLOQUEOS
+        print("Error al registrar usuario:", e)
+        return redirect(url_for("home_userReg", message="Error al registrar usuario"))
 
     finally:
         if cursor:
@@ -240,14 +249,12 @@ def reg_usuario():
         if conexion:
             conexion.close()
 
-    return redirect(
-        url_for(
-            "home_userReg",
-            message="Usuario Registrado Correctamente!"
-        )
-    )
+    return redirect(url_for("home_userReg", message="Usuario Registrado Correctamente!"))
 
-#Ruta para Eliminar Usuarios
+
+# =========================================================
+# 🗑️ RUTA ELIMINAR USUARIO (VERSIÓN SEGURA)
+# =========================================================
 @app.route("/delete_Usuario/<int:id>")
 def delete_usuario(id):
     if "id" not in session or session.get("rol") != "Administrador":
@@ -260,12 +267,24 @@ def delete_usuario(id):
         conexion = getConnection()
         cursor = conexion.cursor()
 
+        # 🔹 Verificar que el usuario exista
+        cursor.execute("SELECT 1 FROM usuarios WHERE idusuarios = %s LIMIT 1", (id,))
+        if not cursor.fetchone():
+            return redirect(url_for("home_userReg", message="El usuario no existe"))
+
+        # 🔹 Eliminar usuario
         cursor.execute(
             "DELETE FROM usuarios WHERE idusuarios = %s",
             (id,)
         )
 
-        conexion.commit()
+        conexion.commit()  # ✅ Guardado definitivo
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()  # 🔥 Libera bloqueos si falla
+        print("Error al eliminar usuario:", e)
+        return redirect(url_for("home_userReg", message="Error al eliminar usuario"))
 
     finally:
         if cursor:
@@ -273,23 +292,22 @@ def delete_usuario(id):
         if conexion:
             conexion.close()
 
-    return redirect(
-        url_for(
-            "home_userReg",
-            message="Registro Eliminado Correctamente!"
-        )
-    )
+    return redirect(url_for("home_userReg", message="Registro Eliminado Correctamente!"))
 
+
+# =========================================================
+# ✏️ RUTA ACTUALIZAR USUARIO (VERSIÓN SEGURA)
+# =========================================================
 @app.route("/Update_Usuario/<int:id>", methods=["POST"])
 def update_usuario(id):
     if "id" not in session or session.get("rol") != "Administrador":
         return redirect(url_for("home"))
 
-    nombre = request.form["nombre"].upper()
+    nombre = request.form["nombre"].upper().strip()
     clave = request.form["clave"]
     rol = request.form["rol"]
     estado = request.form["estado"]
-    operador = request.form["operador"].upper()
+    operador = request.form["operador"].upper().strip()
 
     conexion = None
     cursor = None
@@ -298,13 +316,33 @@ def update_usuario(id):
         conexion = getConnection()
         cursor = conexion.cursor()
 
+        # 🔹 Verificar que el usuario exista
+        cursor.execute("SELECT 1 FROM usuarios WHERE idusuarios = %s LIMIT 1", (id,))
+        if not cursor.fetchone():
+            return redirect(url_for("home_userReg", message="El usuario no existe"))
+
+        # 🔹 Evitar duplicar nombre en otro usuario
+        cursor.execute(
+            "SELECT 1 FROM usuarios WHERE nombre = %s AND idusuarios <> %s LIMIT 1",
+            (nombre, id)
+        )
+        if cursor.fetchone():
+            return redirect(url_for("home_userReg", message="Ya existe otro usuario con ese nombre"))
+
+        # 🔹 Actualizar datos
         cursor.execute("""
             UPDATE usuarios
-            SET nombre=%s, clave=%s, rol=%s, estado=%s,operador=%s
+            SET nombre=%s, clave=%s, rol=%s, estado=%s, operador=%s
             WHERE idusuarios=%s
-        """, (nombre, clave, rol, estado,operador, id))
+        """, (nombre, clave, rol, estado, operador, id))
 
-        conexion.commit()
+        conexion.commit()  # ✅ Guardado definitivo
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()  # 🔥 Cancela si falla
+        print("Error al actualizar usuario:", e)
+        return redirect(url_for("home_userReg", message="Error al actualizar usuario"))
 
     finally:
         if cursor:
@@ -314,7 +352,8 @@ def update_usuario(id):
 
     return redirect(url_for("home_userReg"))
 
-# Cerrar caja
+
+
 
 # ======================
 # CERRAR CAJA (POST)
@@ -398,7 +437,9 @@ def estado_caja():
             conexion.close()
 
 
-# ----------TIKET CAJA---------------
+# =========================================================
+# 🧾 TICKET CIERRE DE CAJA (VERSIÓN ESTABLE)
+# =========================================================
 @app.route("/ticket_cierre_caja")
 def ticket_cierre_caja():
     from datetime import datetime
@@ -406,11 +447,13 @@ def ticket_cierre_caja():
 
     now = datetime.now()
 
+    # 🔹 Validación de sesión
     if "idjornada" not in session or "idpunto" not in session:
         return "No hay caja activa", 403
 
     idjornada = int(session["idjornada"])
     idpunto = int(session["idpunto"])
+    usuario = session.get("usuario", "OPERADOR")
 
     conexion = None
     cursor = None
@@ -419,9 +462,9 @@ def ticket_cierre_caja():
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        usuario = session.get("usuario", "OPERADOR")
-
-        # ================= PUNTO DE VENTA =================
+        # =========================================================
+        # 🏪 PUNTO DE VENTA
+        # =========================================================
         cursor.execute("""
             SELECT nombre
             FROM puntos_venta
@@ -430,7 +473,9 @@ def ticket_cierre_caja():
         punto = cursor.fetchone()
         nombre_punto = punto["nombre"] if punto else "PUNTO"
 
-        # ================= RESUMEN POR PRODUCTO =================
+        # =========================================================
+        # 📦 RESUMEN POR PRODUCTO
+        # =========================================================
         cursor.execute("""
             SELECT
                 p.nombre AS producto,
@@ -445,10 +490,11 @@ def ticket_cierre_caja():
             GROUP BY p.nombre
             ORDER BY p.nombre
         """, (idjornada, idpunto))
-
         productos = cursor.fetchall()
 
-        # ================= TOTALES POR FORMA DE PAGO =================
+        # =========================================================
+        # 💳 TOTALES POR FORMA DE PAGO
+        # =========================================================
         cursor.execute("""
             SELECT mp.modo,
                    SUM(d.subtotal) AS total
@@ -460,10 +506,11 @@ def ticket_cierre_caja():
             GROUP BY mp.modo
             ORDER BY mp.modo
         """, (idjornada, idpunto))
-
         totales_pago = cursor.fetchall()
 
-        # ================= TOTAL GENERAL =================
+        # =========================================================
+        # 💰 TOTAL GENERAL
+        # =========================================================
         cursor.execute("""
             SELECT COALESCE(SUM(d.subtotal),0) AS total
             FROM ventas v
@@ -471,8 +518,8 @@ def ticket_cierre_caja():
             WHERE v.idjornada = %s
               AND v.idpunto = %s
         """, (idjornada, idpunto))
-
-        total_general = cursor.fetchone()["total"]
+        fila_total = cursor.fetchone()
+        total_general = fila_total["total"] if fila_total else 0
 
         return render_template(
             "ticket_cierre_caja.html",
@@ -485,19 +532,23 @@ def ticket_cierre_caja():
         )
 
     except Exception as e:
+        # 🔥 Aunque sea SELECT, hacemos rollback por seguridad
+        if conexion:
+            conexion.rollback()
         print("ERROR TICKET_CIERRE_CAJA:", e)
         return "Error generando ticket de cierre", 500
 
     finally:
+        # 🔹 Siempre cerrar recursos
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
 
-
-
-
 #--------------------------------------BOLETERIA---------------------------------
+# =========================================================
+# 🎟️ HOME BOLETERÍA (VERSIÓN ESTABLE)
+# =========================================================
 @app.route("/boleteria")
 def boleteria_home():
 
@@ -512,7 +563,9 @@ def boleteria_home():
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ================= JORNADA ACTIVA =================
+        # =========================================================
+        # 📅 JORNADA ACTIVA
+        # =========================================================
         cursor.execute("""
             SELECT idjornada, nombre
             FROM jornadas
@@ -522,6 +575,9 @@ def boleteria_home():
         """)
         jornada = cursor.fetchone()
 
+        # =========================================================
+        # 💳 MODOS DE PAGO
+        # =========================================================
         cursor.execute("""
             SELECT idmodopago, modo
             FROM modopago
@@ -538,13 +594,16 @@ def boleteria_home():
                 entradas_vendidas=0,
                 usuario=session["nombre"],
                 rol=session["rol"],
+                modopago=modopago,
                 error="No hay jornada activa"
             )
 
         idjornada = jornada["idjornada"]
-        session["idjornada"] = idjornada
+        session["idjornada"] = idjornada  # mantiene comportamiento original
 
-        # ================= SECTORES =================
+        # =========================================================
+        # 🎫 SECTORES
+        # =========================================================
         cursor.execute("""
             SELECT idsector, nombre, precio
             FROM sectores_entradas
@@ -554,10 +613,11 @@ def boleteria_home():
         """, (idjornada,))
         sectores = cursor.fetchall()
 
-        # DEBUG útil (dejalo mientras probás)
-        print("SECTORES:", sectores)
+        print("SECTORES:", sectores)  # debug
 
-        # ================= RECAUDACIÓN =================
+        # =========================================================
+        # 💰 RECAUDACIÓN
+        # =========================================================
         cursor.execute("""
             SELECT COALESCE(SUM(total), 0) AS total
             FROM ventas_entradas
@@ -567,7 +627,9 @@ def boleteria_home():
         row_recaudacion = cursor.fetchone()
         recaudacion = row_recaudacion["total"] if row_recaudacion else 0
 
-        # ================= ENTRADAS VENDIDAS =================
+        # =========================================================
+        # 🎟️ ENTRADAS VENDIDAS
+        # =========================================================
         cursor.execute("""
             SELECT COALESCE(SUM(d.cantidad), 0) AS total
             FROM ventas_entradas_detalle d
@@ -590,6 +652,8 @@ def boleteria_home():
         )
 
     except Exception as e:
+        if conexion:
+            conexion.rollback()  # 🔥 limpia cualquier estado pendiente
         print("ERROR BOLETERIA:", e)
         return "Error interno en boletería", 500
 
@@ -599,9 +663,10 @@ def boleteria_home():
         if conexion:
             conexion.close()
 
-    
-#REGISTRO DE VENTAS DE ENTRADAS
 
+# =========================================================
+# 🎟️ REGISTRAR VENTA ENTRADA (VERSIÓN TRANSACCIONAL SEGURA)
+# =========================================================
 @app.route("/registrar_venta_entrada", methods=["POST"])
 def registrar_venta_entrada():
 
@@ -616,19 +681,21 @@ def registrar_venta_entrada():
         print("DATA RECIBIDA:", data)
 
         idusuario = session["id"]
-        idjornada = data["idjornada"]
-        idcliente = data["idcliente"]
-        idsector  = data["idsector"]
+        idjornada = int(data["idjornada"])
+        idcliente = int(data["idcliente"])
+        idsector  = int(data["idsector"])
         cantidad  = int(data["cantidad"])
         total     = float(data["total"])
 
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ================= VALIDAR CAJA ABIERTA =================
-      
+        # 🔹 Iniciar transacción explícita (extra seguridad)
+        conexion.begin()
 
-        # ================= ARMAR PAGOS =================
+        # =========================================================
+        # 💳 ARMAR PAGOS
+        # =========================================================
         pagos = []
 
         if "pagos_mixtos" in data:
@@ -643,37 +710,32 @@ def registrar_venta_entrada():
                 "importe": total
             })
 
-        # ================= VALIDAR TOTAL =================
+        # 🔹 Validar suma de pagos
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
         if round(total, 2) != suma_pagos:
-            return jsonify({
-                "ok": False,
-                "msg": "La suma de los pagos no coincide con el total"
-            }), 400
+            raise Exception("La suma de los pagos no coincide con el total")
 
-        # ================= ID MODO PAGO CABECERA =================
         idmodopago_venta = pagos[0]["idmodopago"] if len(pagos) == 1 else None
 
-        # ================= CABECERA =================
+        # =========================================================
+        # 🧾 CABECERA VENTA
+        # =========================================================
         cursor.execute("""
             INSERT INTO ventas_entradas
             (idjornada, idusuario, cliente, idmodopago, total, estado)
             VALUES (%s,%s,%s,%s,%s,'OK')
-        """, (
-            idjornada,
-            idusuario,
-            idcliente,
-            idmodopago_venta,
-            total
-        ))
+        """, (idjornada, idusuario, idcliente, idmodopago_venta, total))
 
         idventa = cursor.lastrowid
 
-        # ================= PRECIO SECTOR =================
+        # =========================================================
+        # 🎫 PRECIO SECTOR
+        # =========================================================
         cursor.execute("""
             SELECT precio
             FROM sectores_entradas
             WHERE idsector = %s AND estado = 'Activo'
+            LIMIT 1
         """, (idsector,))
         sector = cursor.fetchone()
 
@@ -681,33 +743,28 @@ def registrar_venta_entrada():
             raise Exception("Sector no encontrado")
 
         precio = float(sector["precio"])
-        subtotal = precio * cantidad
+        subtotal = round(precio * cantidad, 2)
 
-        # ================= DETALLE =================
+        # =========================================================
+        # 📦 DETALLE
+        # =========================================================
         cursor.execute("""
             INSERT INTO ventas_entradas_detalle
             (idventa, idsector, cantidad, precio_unitario, subtotal)
             VALUES (%s,%s,%s,%s,%s)
-        """, (
-            idventa,
-            idsector,
-            cantidad,
-            precio,
-            subtotal
-        ))
+        """, (idventa, idsector, cantidad, precio, subtotal))
 
-        # ================= PAGOS =================
+        # =========================================================
+        # 💰 PAGOS
+        # =========================================================
         for p in pagos:
             cursor.execute("""
                 INSERT INTO ventas_entradas_pagos
                 (idventa, idmodopago, importe)
                 VALUES (%s,%s,%s)
-            """, (
-                idventa,
-                p["idmodopago"],
-                p["importe"]
-            ))
+            """, (idventa, p["idmodopago"], p["importe"]))
 
+        # 🔥 CONFIRMAR TODO JUNTO
         conexion.commit()
 
         return jsonify({
@@ -719,7 +776,7 @@ def registrar_venta_entrada():
     except Exception as e:
         print("ERROR REGISTRAR ENTRADA:", e)
         if conexion:
-            conexion.rollback()
+            conexion.rollback()  # 💥 Cancela TODO si algo falla
         return jsonify({
             "ok": False,
             "msg": str(e)
@@ -730,6 +787,7 @@ def registrar_venta_entrada():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 #Reporte Boleteria
 @app.route("/reporte_boleteria")
@@ -998,16 +1056,16 @@ def usuarios_puntos():
             conexion.close()
 
 
-
-# ==============================
-# REGISTRAR ASIGNACIÓN
-# ==============================
-
+# =========================================================
+# RUTA: ASIGNAR USUARIO A UN PUNTO DE VENTA
+# =========================================================
 @app.route("/reg_usuario_punto", methods=["POST"])
 def reg_usuario_punto():
+    # 🔒 Seguridad: solo administradores
     if "id" not in session or session["rol"] != "Administrador":
         return redirect(url_for("home"))
 
+    # 📥 Datos recibidos del formulario
     idusuario = request.form["idusuario"]
     idpunto = request.form["idpunto"]
 
@@ -1015,36 +1073,42 @@ def reg_usuario_punto():
     cursor = None
 
     try:
+        # 🔌 Conexión a la base de datos
         conexion = getConnection()
         cursor = conexion.cursor()
 
+        # 📝 Insertar relación usuario ↔ punto
         cursor.execute("""
             INSERT INTO usuarios_puntos (idusuario, idpunto)
             VALUES (%s, %s)
         """, (idusuario, idpunto))
+
         conexion.commit()
         msg = "Usuario asignado correctamente!"
 
     except Exception as e:
+        # ⚠️ Si falla (normalmente por duplicado)
         print("ERROR REG_USUARIO_PUNTO:", e)
         msg = "El usuario ya está asignado a ese punto"
 
     finally:
+        # 🧹 Cierre seguro de recursos
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
 
+    # 🔄 Redirección manteniendo tu flujo original
     return redirect(url_for("usuarios_puntos", message=msg))
 
 
-
-# ==============================
-# ELIMINAR ASIGNACIÓN
-# ==============================
-
+# =========================================================
+# RUTA: ELIMINAR ASIGNACIÓN USUARIO ↔ PUNTO
+# =========================================================
 @app.route("/delete_usuario_punto/<int:id>")
 def delete_usuario_punto(id):
+
+    # 🔒 Seguridad: solo administradores
     if "id" not in session or session["rol"] != "Administrador":
         return redirect(url_for("home"))
 
@@ -1052,25 +1116,30 @@ def delete_usuario_punto(id):
     cursor = None
 
     try:
+        # 🔌 Conexión a la base
         conexion = getConnection()
         cursor = conexion.cursor()
 
+        # 🗑️ Eliminar asignación por ID
         cursor.execute(
             "DELETE FROM usuarios_puntos WHERE id=%s",
             (id,)
         )
+
         conexion.commit()
 
     except Exception as e:
+        # ⚠️ Mantenemos tu comportamiento: no rompe el flujo
         print("ERROR DELETE_USUARIO_PUNTO:", e)
-        # mantenemos el flujo original (redirige igual)
 
     finally:
+        # 🧹 Cierre de conexión seguro
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
 
+    # 🔄 Redirección original
     return redirect(
         url_for(
             "usuarios_puntos",
@@ -1080,10 +1149,16 @@ def delete_usuario_punto(id):
 
 
 
+
 #----------------------------------------------------------Ventas-------------------------------------
 
+# =========================================================
+# RUTA: PANTALLA PRINCIPAL DE VENTAS
+# =========================================================
 @app.route("/ventas", methods=["GET"])
 def ventas_home():
+
+    # 🔒 Seguridad: sesión obligatoria
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -1093,10 +1168,13 @@ def ventas_home():
     cursor = None
 
     try:
+        # 🔌 Conexión a BD
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # -------------------- JORNADA ACTIVA --------------------
+        # =====================================================
+        # 🗓️ JORNADA ACTIVA
+        # =====================================================
         cursor.execute("""
             SELECT idjornada, nombre
             FROM jornadas
@@ -1112,7 +1190,9 @@ def ventas_home():
         idjornada = jornada["idjornada"]
         idpunto = session.get("idpunto")
 
-        # -------------------- RECAUDACIÓN TOTAL --------------------
+        # =====================================================
+        # 💰 RECAUDACIÓN DEL PUNTO
+        # =====================================================
         cursor.execute("""
             SELECT IFNULL(SUM(total), 0) AS recaudacion
             FROM ventas
@@ -1122,7 +1202,9 @@ def ventas_home():
         """, (idjornada, idpunto))
         recaudacion = cursor.fetchone()["recaudacion"]
 
-        # -------------------- CLIENTES --------------------
+        # =====================================================
+        # 👥 CLIENTES (VENTA NORMAL)
+        # =====================================================
         cursor.execute("""
             SELECT idclientes, apenomb
             FROM clientes
@@ -1130,7 +1212,9 @@ def ventas_home():
         """)
         clientes = cursor.fetchall()
 
-        # -------------------- MODOS DE PAGO --------------------
+        # =====================================================
+        # 💳 MODOS DE PAGO
+        # =====================================================
         cursor.execute("""
             SELECT idmodopago, modo
             FROM modopago
@@ -1138,7 +1222,9 @@ def ventas_home():
         """)
         modopago = cursor.fetchall()
 
-        # -------------------- PRODUCTOS --------------------
+        # =====================================================
+        # 📦 PRODUCTOS HABILITADOS EN LA JORNADA
+        # =====================================================
         cursor.execute("""
             SELECT p.idproductos, p.nombre, p.importe
             FROM productos p
@@ -1150,7 +1236,9 @@ def ventas_home():
         """)
         productos = cursor.fetchall()
 
-        # -------------------- CLIENTES PARA PUNTOS --------------------
+        # =====================================================
+        # 👥 CLIENTES PARA PUNTOS (MISMA LISTA, USO DISTINTO EN VISTA)
+        # =====================================================
         cursor.execute("""
             SELECT idclientes, apenomb
             FROM clientes
@@ -1158,6 +1246,9 @@ def ventas_home():
         """)
         clientes_puntos = cursor.fetchall()
 
+        # =====================================================
+        # 🖥️ RENDER DE LA VISTA
+        # =====================================================
         return render_template(
             "ventas.html",
             usuario=session["nombre"],
@@ -1176,16 +1267,20 @@ def ventas_home():
         return "Error interno en ventas", 500
 
     finally:
+        # 🧹 Cierre seguro
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
 
-
-
-
+# =========================================================
+# RUTA: REGISTRAR VENTA (PRINCIPAL DEL SISTEMA)
+# ⚠️ NO SE MODIFICA LÓGICA — SOLO ORDEN Y CLARIDAD
+# =========================================================
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
+
+    # 🔒 Seguridad
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -1198,10 +1293,13 @@ def registrar_venta():
     cursor = None
 
     try:
+        # 🔌 Conexión
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # ================= VALIDAR CAJA ABIERTA =================
+        # =====================================================
+        # 🧾 VALIDAR CAJA ABIERTA
+        # =====================================================
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
@@ -1215,14 +1313,16 @@ def registrar_venta():
                 "error": "La caja está cerrada"
             }), 403
 
-        # ================= TOTAL VENTA =================
+        # =====================================================
+        # 💰 TOTAL VENTA
+        # =====================================================
         total_str = request.form.get("total", "0")
         total = float(total_str.replace(".", "").replace(",", "."))
 
-            # ================= ARMAR PAGOS =================
+        # =====================================================
+        # 💳 ARMAR PAGOS (SIMPLE O MIXTO)
+        # =====================================================
         pagos = []
-
-        # 🔹 NUEVO: pagos mixtos desde JS (JSON)
         pagos_mixtos_json = request.form.get("pagos_mixtos")
 
         if pagos_mixtos_json:
@@ -1233,11 +1333,8 @@ def registrar_venta():
                     "idmodopago": int(p["medio"]),
                     "importe": float(p["monto"])
                 })
-
         else:
-            # 🔹 PAGO SIMPLE (compatibilidad total)
             idmodopago_form = request.form.get("modopago")
-
             if not idmodopago_form:
                 raise Exception("No se recibió modo de pago")
 
@@ -1246,8 +1343,9 @@ def registrar_venta():
                 "importe": total
             })
 
-
-        # ================= VALIDAR SUMA DE PAGOS =================
+        # =====================================================
+        # 🧮 VALIDAR SUMA DE PAGOS
+        # =====================================================
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
         if round(total, 2) != suma_pagos:
             return jsonify({
@@ -1255,13 +1353,14 @@ def registrar_venta():
                 "error": "La suma de los pagos no coincide con el total"
             }), 400
 
-        # ================= ID MODO PAGO PARA VENTAS =================
-        if len(pagos) == 1:
-            idmodopago_venta = pagos[0]["idmodopago"]
-        else:
-            idmodopago_venta = None  # Pagos combinados → NULL
+        # =====================================================
+        # 🏷️ MODO DE PAGO CABECERA
+        # =====================================================
+        idmodopago_venta = pagos[0]["idmodopago"] if len(pagos) == 1 else None
 
-        # ================= INSERTAR VENTA =================
+        # =====================================================
+        # 🧾 INSERTAR VENTA (CABECERA)
+        # =====================================================
         qr_token = uuid.uuid4().hex
 
         cursor.execute("""
@@ -1282,7 +1381,9 @@ def registrar_venta():
 
         idventa = cursor.lastrowid
 
-        # ================= INSERTAR PAGOS (DETALLADOS) =================
+        # =====================================================
+        # 💳 INSERTAR PAGOS DETALLADOS
+        # =====================================================
         for p in pagos:
             cursor.execute("""
                 INSERT INTO ventas_pagos
@@ -1294,7 +1395,9 @@ def registrar_venta():
                 p["importe"]
             ))
 
-        # ================= DETALLE DE PRODUCTOS =================
+        # =====================================================
+        # 📦 DETALLE DE PRODUCTOS
+        # =====================================================
         productos   = request.form.getlist("productos[]")
         cantidades  = request.form.getlist("cantidades[]")
         precios     = request.form.getlist("precios[]")
@@ -1329,13 +1432,18 @@ def registrar_venta():
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
-        # ================= ACTUALIZAR PUNTOS =================
+        # =====================================================
+        # ⭐ ACTUALIZAR PUNTOS
+        # =====================================================
         cursor.execute("""
             UPDATE ventas
             SET puntos_ganados = %s
             WHERE idventa = %s
         """, (total_puntos, idventa))
 
+        # =====================================================
+        # 💾 CONFIRMAR TRANSACCIÓN
+        # =====================================================
         conexion.commit()
 
         return jsonify({
@@ -1358,13 +1466,15 @@ def registrar_venta():
         if conexion:
             conexion.close()
 
-
-
-
 #Ruta para actualizar la recaudacion por caja 
+# =========================================================
+# RUTA: RECAUDACIÓN ACTUAL EN TIEMPO REAL
+# Devuelve el total vendido en la caja abierta
+# =========================================================
 @app.route("/recaudacion_actual")
 def recaudacion_actual():
 
+    # 🔒 Validar sesión mínima
     if "idpunto" not in session or "idjornada" not in session:
         return jsonify({"total": 0})
 
@@ -1372,9 +1482,11 @@ def recaudacion_actual():
     cursor = None
 
     try:
+        # 🔌 Conexión
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
+        # 💰 Suma de ventas de la jornada y punto actual
         cursor.execute("""
             SELECT COALESCE(SUM(d.subtotal),0) AS total
             FROM ventas v
@@ -1386,7 +1498,8 @@ def recaudacion_actual():
             session["idjornada"]
         ))
 
-        total = cursor.fetchone()["total"]
+        row = cursor.fetchone()
+        total = row["total"] if row else 0
 
         return jsonify({"total": float(total)})
 
@@ -1401,14 +1514,20 @@ def recaudacion_actual():
             conexion.close()
 
 
-#finalizar jornada
+# =========================================================
+# RUTA: FINALIZAR JORNADA
+# Cambia estado a "Cerrado" y limpia sesión
+# =========================================================
 @app.route("/finalizar_jornada", methods=["POST"])
 def finalizar_jornada():
+
+    # 🔒 Seguridad básica
     if "id" not in session:
         return redirect(url_for("home"))
 
     idjornada = session.get("idjornada")
 
+    # Si por alguna razón no hay jornada, vuelve a ventas
     if not idjornada:
         return redirect(url_for("ventas"))
 
@@ -1419,6 +1538,7 @@ def finalizar_jornada():
         conexion = getConnection()
         cursor = conexion.cursor()
 
+        # 🔐 Cerrar jornada
         cursor.execute("""
             UPDATE jornadas
             SET estado = 'Cerrado'
@@ -1427,7 +1547,7 @@ def finalizar_jornada():
 
         conexion.commit()
 
-        # 🔹 Limpieza de sesión SOLO si el cierre fue correcto
+        # 🧹 Limpiar sesión SOLO si se cerró correctamente
         session.pop("idjornada", None)
 
         return redirect(
@@ -1445,6 +1565,7 @@ def finalizar_jornada():
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 #---------------------------------------------Clientes----------------------------------------------------------------
@@ -1489,16 +1610,22 @@ def home_clientes():
 
 
 # Ruta para guardar clientes
+# =========================================================
+# RUTA: GUARDAR CLIENTE
+# =========================================================
 @app.route("/guardar_Clientes", methods=['POST'])
 def guardar_Clientes():
+
+    # 🔒 Seguridad
     if "id" not in session:
         return redirect(url_for('home'))
 
+    # 📥 Datos del formulario
     apenomb = request.form['apenomb'].upper()
     dni = request.form['dni']
     cuil = request.form['cuil']
     correo = request.form['correo']
-    fecha_nacimiento = request.form['fecha_nacimiento'] or None  # Puede estar vacío
+    fecha_nacimiento = request.form['fecha_nacimiento'] or None  # Campo opcional
 
     query = """
         INSERT INTO clientes (apenomb, dni, cuil, correo, fecha_nacimiento)
@@ -1535,13 +1662,17 @@ def guardar_Clientes():
             conexion.close()
 
 
-
-# Ruta para modificar clientes
+# =========================================================
+# RUTA: ACTUALIZAR CLIENTE
+# =========================================================
 @app.route("/Update_Clientes/<int:id>", methods=["POST"])
 def update_Clientes(id):
+
+    # 🔒 Seguridad
     if "id" not in session:
         return redirect(url_for("home"))
 
+    # 📥 Datos del formulario
     apenomb = request.form["apenomb"].upper()
     dni = request.form["dni"]
     cuil = request.form["cuil"]
@@ -1587,10 +1718,13 @@ def update_Clientes(id):
             conexion.close()
 
 
-
-# Ruta para eliminar clientes
+# =========================================================
+# RUTA: ELIMINAR CLIENTE
+# =========================================================
 @app.route("/delete_Clientes/<int:id>")
 def eliminar_Clientes(id):
+
+    # 🔒 Seguridad
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -1625,6 +1759,7 @@ def eliminar_Clientes(id):
             cursor.close()
         if conexion:
             conexion.close()
+
 
 
 #Buscar Clientes
@@ -2844,18 +2979,43 @@ def ticket(idventa):
         if conexion:
             conexion.close()
 
-    # ================= GENERAR QR =================
+        # ================= GENERAR QR COMPLETO =================
+
+    # ----- Formateos seguros -----
+    fecha_str = venta["fecha_hora"].strftime("%d/%m/%Y %H:%M")
+    total_str = f"{float(venta['total']):.2f}"
+    cliente_str = venta["cliente"]
+    jornada_str = venta["jornada"]
+
+    # ----- Cantidad total de productos -----
+    total_items = sum(d["cantidad"] for d in detalle)
+
+    # ----- Formas de pago en texto -----
+    pagos_str = ", ".join(f"{p['modo']} ${p['importe']}" for p in pagos) if pagos else "Sin pagos registrados"
+
+    # ----- Info de cortesía -----
+    cortesia_str = "SI" if es_cortesia else "NO"
+    autorizado_str = autorizado_cortesia if autorizado_cortesia else "-"
+
+    # ----- TEXTO FINAL DEL QR -----
     qr_texto = (
-        f"TICKETJETS\n"
-        f"Venta: {venta['idventa']}\n"
-        f"Total: ${venta['total']}\n"
-        f"Fecha: {venta['fecha_hora'].strftime('%d/%m/%Y %H:%M')}"
+        "=== TICKETJETS ===\n"
+        f"Venta Nº: {venta['idventa']}\n"
+        f"Fecha: {fecha_str}\n"
+        f"Cliente: {cliente_str}\n"
+        f"Jornada: {jornada_str}\n"
+        f"Productos: {total_items}\n"
+        f"Total: ${total_str}\n"
+        f"Cortesía: {cortesia_str}\n"
+        f"Autorizado por: {autorizado_str}\n"
+        f"Pagos: {pagos_str}"
     )
 
     qr = qrcode.make(qr_texto)
     buffer = BytesIO()
     qr.save(buffer, format="PNG")
     qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
 
     return render_template(
         "ticket.html",
@@ -2871,14 +3031,13 @@ def ticket(idventa):
         autorizado_cortesia=autorizado_cortesia
     )
 
-
-
-
-
 # Ruta para ver el ticket de Venta
 
 @app.route("/ver_ticket/<token>")
 def ver_ticket(token):
+
+    if not token or len(token) < 10:  # token mínimo razonable
+        return "TICKET NO VÁLIDO", 400
 
     conexion = None
     cursor = None
@@ -2887,14 +3046,17 @@ def ver_ticket(token):
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
+        # ================= DATOS PRINCIPALES =================
         cursor.execute("""
             SELECT v.idventa, 
                    v.fecha_hora, 
                    v.total, 
                    v.estado_ticket,
+                   IFNULL(c.apenomb,'Consumidor Final') AS cliente,
                    j.nombre AS jornada,
                    p.nombre AS caja
             FROM ventas v
+            LEFT JOIN clientes c ON c.idclientes = v.idclientes
             JOIN jornadas j ON v.idjornada = j.idjornada
             JOIN puntos_venta p ON v.idpunto = p.idpunto
             WHERE v.qr_token = %s
@@ -2904,6 +3066,19 @@ def ver_ticket(token):
 
         if not venta:
             return "TICKET NO VÁLIDO", 404
+
+        # ================= DETALLE PARA CONTROL =================
+        cursor.execute("""
+            SELECT COUNT(*) AS total_items,
+                   MAX(autorizado) AS autorizado
+            FROM ventas_detalle
+            WHERE idventa = %s
+        """, (venta["idventa"],))
+        extra = cursor.fetchone()
+
+        venta["total_items"] = extra["total_items"]
+        venta["autorizado"] = extra["autorizado"]
+        venta["es_cortesia"] = True if extra["autorizado"] else False
 
         return render_template(
             "validar_ticket.html",
@@ -2920,7 +3095,12 @@ def ver_ticket(token):
         if conexion:
             conexion.close()
 
+
 #RUTA PARA TICKET DE VENTA DE ENTRADAS
+from datetime import datetime
+import qrcode, base64
+from io import BytesIO
+
 @app.route("/ticket_entrada/<int:idventa>")
 def ticket_entrada(idventa):
 
@@ -2937,16 +3117,30 @@ def ticket_entrada(idventa):
                 v.idventa,
                 v.fecha_emision,
                 v.total,
-                c.apenomb AS cliente,                
+                IFNULL(c.apenomb,'Consumidor Final') AS cliente,                
                 j.nombre AS jornada,
                 u.nombre AS usuario           
             FROM ventas_entradas v
             JOIN jornadas j ON j.idjornada = v.idjornada
             JOIN usuarios u ON u.idusuarios = v.idusuario
-            JOIN clientes c ON c.idclientes = v.cliente        
+            LEFT JOIN clientes c ON c.idclientes = v.cliente        
             WHERE v.idventa = %s
         """, (idventa,))
         venta = cur.fetchone()
+
+        if not venta:
+            return "Ticket no encontrado", 404
+
+        # ================= FIX FECHA (ULTRA ROBUSTO) =================
+        fecha = venta["fecha_emision"]
+
+        if isinstance(fecha, str):
+            try:
+                fecha = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S")
+            except:
+                fecha = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S.%f")
+
+        venta["fecha_emision"] = fecha.strftime("%d/%m/%Y %H:%M")
 
         # ================= DETALLE =================
         cur.execute("""
@@ -2961,6 +3155,7 @@ def ticket_entrada(idventa):
         """, (idventa,))
         detalle = cur.fetchall()
 
+        # ================= PAGOS =================
         cur.execute("""
             SELECT mp.modo, vp.importe
             FROM ventas_entradas_pagos vp
@@ -2968,13 +3163,6 @@ def ticket_entrada(idventa):
             WHERE vp.idventa = %s
         """, (idventa,))
         pagos = cur.fetchall()
-
-        return render_template(
-            "ticket_entrada.html",
-            venta=venta,
-            detalle=detalle,
-            pagos=pagos
-        )
 
     except Exception as e:
         print("ERROR TICKET ENTRADA:", e)
@@ -2985,6 +3173,32 @@ def ticket_entrada(idventa):
             cur.close()
         if con:
             con.close()
+
+    # ================= GENERAR QR =================
+    qr_texto = (
+        f"TICKET ENTRADA\n"
+        f"Venta: {venta['idventa']}\n"
+        f"Cliente: {venta['cliente']}\n"
+        f"Jornada: {venta['jornada']}\n"
+        f"Total: ${venta['total']}\n"
+        f"Fecha: {venta['fecha_emision']}\n"
+        f"Usuario: {venta['usuario']}"
+    )
+
+    qr = qrcode.make(qr_texto)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return render_template(
+        "ticket_entrada.html",
+        venta=venta,
+        detalle=detalle,
+        pagos=pagos,
+        qr_base64=qr_base64
+    )
+
+
 #-----------------------------REPORTES-----------------------------------
 @app.route("/admin/dashboard")
 def admin_dashboard():
@@ -3396,11 +3610,13 @@ def home_sectores_entradas():
             conexion.close()
 
 
-# ======================
-# RUTA: Guardar Sector Entrada
-# ======================
+# =========================================================
+# RUTA: GUARDAR SECTOR DE ENTRADA
+# =========================================================
 @app.route("/guardar_sector_entrada", methods=["POST"])
 def guardar_sector_entrada():
+
+    # 🔒 Seguridad de sesión
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -3408,13 +3624,19 @@ def guardar_sector_entrada():
     cursor = None
 
     try:
+        # 📥 Datos del formulario
         idjornada = request.form["idjornada"]
-        nombre = request.form["nombre"].upper()
+        nombre = request.form["nombre"].upper().strip()
         precio = request.form["precio"]
         estado = request.form["estado"]
 
+        # Validación mínima
+        if not nombre or not precio:
+            return "Datos incompletos", 400
+
         conexion = getConnection()
         cursor = conexion.cursor()
+
         cursor.execute("""
             INSERT INTO sectores_entradas (idjornada, nombre, precio, estado)
             VALUES (%s, %s, %s, %s)
@@ -3422,10 +3644,14 @@ def guardar_sector_entrada():
 
         conexion.commit()
 
-        return redirect(url_for("home_sectores_entradas",
-                                message="Sector registrado correctamente"))
+        return redirect(url_for(
+            "home_sectores_entradas",
+            message="Sector registrado correctamente"
+        ))
 
     except Exception as e:
+        if conexion:
+            conexion.rollback()
         print("❌ Error en guardar_sector_entrada:", e)
         return "Error interno al guardar el sector", 500
 
@@ -3436,11 +3662,13 @@ def guardar_sector_entrada():
             conexion.close()
 
 
-# ======================
-# RUTA: Actualizar Sector Entrada
-# ======================
+# =========================================================
+# RUTA: ACTUALIZAR SECTOR DE ENTRADA
+# =========================================================
 @app.route("/update_sector_entrada/<int:id>", methods=["POST"])
 def update_sector_entrada(id):
+
+    # 🔒 Seguridad de sesión
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -3448,13 +3676,18 @@ def update_sector_entrada(id):
     cursor = None
 
     try:
+        # 📥 Datos del formulario
         idjornada = request.form["idjornada"]
-        nombre = request.form["nombre"].upper()
+        nombre = request.form["nombre"].upper().strip()
         precio = request.form["precio"]
         estado = request.form["estado"]
 
+        if not nombre or not precio:
+            return "Datos incompletos", 400
+
         conexion = getConnection()
         cursor = conexion.cursor()
+
         cursor.execute("""
             UPDATE sectores_entradas
             SET idjornada=%s, nombre=%s, precio=%s, estado=%s
@@ -3463,10 +3696,14 @@ def update_sector_entrada(id):
 
         conexion.commit()
 
-        return redirect(url_for("home_sectores_entradas",
-                                message="Sector actualizado correctamente"))
+        return redirect(url_for(
+            "home_sectores_entradas",
+            message="Sector actualizado correctamente"
+        ))
 
     except Exception as e:
+        if conexion:
+            conexion.rollback()
         print("❌ Error en update_sector_entrada:", e)
         return "Error interno al actualizar el sector", 500
 
@@ -3477,11 +3714,13 @@ def update_sector_entrada(id):
             conexion.close()
 
 
-# ======================
-# RUTA: Eliminar Sector Entrada
-# ======================
+# =========================================================
+# RUTA: ELIMINAR SECTOR DE ENTRADA
+# =========================================================
 @app.route("/delete_sector_entrada/<int:id>")
 def delete_sector_entrada(id):
+
+    # 🔒 Seguridad de sesión
     if "id" not in session:
         return redirect(url_for("home"))
 
@@ -3491,13 +3730,22 @@ def delete_sector_entrada(id):
     try:
         conexion = getConnection()
         cursor = conexion.cursor()
-        cursor.execute("DELETE FROM sectores_entradas WHERE idsector=%s", (id,))
+
+        cursor.execute(
+            "DELETE FROM sectores_entradas WHERE idsector=%s",
+            (id,)
+        )
+
         conexion.commit()
 
-        return redirect(url_for("home_sectores_entradas",
-                                message="Sector eliminado correctamente"))
+        return redirect(url_for(
+            "home_sectores_entradas",
+            message="Sector eliminado correctamente"
+        ))
 
     except Exception as e:
+        if conexion:
+            conexion.rollback()
         print("❌ Error en delete_sector_entrada:", e)
         return "Error interno al eliminar el sector", 500
 

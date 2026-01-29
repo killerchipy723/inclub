@@ -1,18 +1,17 @@
+from dbutils.pooled_db import PooledDB
 import pymysql
 
-def getConnection():
-    try:
-        conexion = pymysql.connect(
-            host="localhost",
-            user="root",
-            password="inclub123",
-            database="inclub_offline",
-            charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor,
-            autocommit=False
-        )
-        return conexion
+pool = PooledDB(
+    creator=pymysql,
+    maxconnections=10,
+    host="localhost",
+    user="root",
+    password="inclub123",
+    database="inclub_offline",
+    charset="utf8mb4",
+    cursorclass=pymysql.cursors.DictCursor,
+    autocommit=False
+)
 
-    except pymysql.MySQLError as e:
-        print("❌ Error al conectar a la base de datos:", e)
-        return None
+def getConnection():
+    return pool.connection()

@@ -40,6 +40,9 @@ hr {
     font-size: 15px;
     font-weight: bold;
 }
+#titulo{
+    font-size: 1.1rem;
+}
 
 .qr {
     margin: 6px 0;
@@ -64,15 +67,15 @@ hr {
 <!-- ================= DATOS TICKET ================= -->
 <div class="small">
 <b>Ticket Nº:</b> {{ venta.idventa }}<br>
-<b>Fecha:</b> {{ venta.fecha_emision.strftime("%d/%m/%Y %H:%M") }}<br>
+<b>Fecha:</b> {{ venta.fecha_emision }}<br>
 <div><b>Operador:</b> {{ session['operador'] }}</div>
 </div>
 
 <hr>
 
 <!-- ================= JORNADA ================= -->
-<div class="center bold">
-{{ venta.jornada }}
+<div class="center bold" id="titulo">
+EVENTO: {{ venta.jornada }}
 </div>
 
 <hr>
