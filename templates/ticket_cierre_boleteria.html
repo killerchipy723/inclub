@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cierre Boletería</title>
+
+<style>
+body {
+  font-family: monospace;
+  width: 80mm;
+  font-size: 12px;
+}
+.center { text-align: center; }
+.line { border-top: 1px dashed #000; margin: 6px 0; }
+.row { display: flex; justify-content: space-between; }
+</style>
+</head>
+
+<body onload="window.print()">
+
+<div class="center">
+  <strong>CIERRE DE BOLETERÍA</strong><br>
+  EVENTO: {{ datos.idjornada }}<br>
+  {{ datos.nombre }}<br>
+  Operador: {{ session['operador'] }}
+</div>
+
+<div class="line"></div>
+
+{% for s in sectores %}
+<div class="row">
+  <span>Sector: {{ s.sector }} ({{ s.cantidad }})</span>
+  <span>${{ s.total }}</span>
+</div>
+{% endfor %}
+
+<div class="line"></div>
+
+{% for p in pagos %}
+<div class="row">
+  <span>{{ p.modo }}</span>
+  <span>${{ p.total }}</span>
+</div>
+{% endfor %}
+
+<div class="line"></div>
+
+<div class="row">
+  <strong>TOTAL</strong>
+  <strong>${{ total }}</strong>
+</div>
+
+<div class="line"></div>
+
+<div class="center">
+  {{ datos.cierre }}
+</div>
+
+</body>
+</html>

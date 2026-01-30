@@ -338,7 +338,6 @@ btnVender.addEventListener("click", async () => {
   }
 });
 
-
 /* =========================
    CERRAR CAJA
 ========================= */
@@ -355,7 +354,18 @@ async function cerrarCaja() {
   document.getElementById("venderEntrada").disabled = true;
   document.getElementById("estadoCaja").textContent = "Caja Cerrada";
   document.getElementById("estadoCaja").className = "badge bg-danger";
+  imprimirCierreCaja();
 }
+
+
+function imprimirCierreCaja() {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "/ticket_cierre_boleteria";
+    document.body.appendChild(iframe);
+    iframe.onload = () => iframe.contentWindow.print();
+  }
+
 
 
 

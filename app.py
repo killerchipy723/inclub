@@ -789,6 +789,116 @@ def registrar_venta_entrada():
         if conexion:
             conexion.close()
 
+#Tickets de cierre de boleteria
+@app.route("/ticket_cierre_boleteria")
+def ticket_cierre_boleteria():
+    from datetime import datetime
+    import pymysql
+
+    # ================= SEGURIDAD =================
+    if "idjornada" not in session:
+        return "No hay jornada activa", 403
+
+    idjornada = int(session["idjornada"])
+    usuario = session.get("nombre", "OPERADOR")
+    now = datetime.now()
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        # =========================================================
+        # 📅 DATOS JORNADA
+        # =========================================================
+        cursor.execute("""
+            SELECT nombre
+            FROM jornadas
+            WHERE idjornada = %s
+        """, (idjornada,))
+        jornada = cursor.fetchone()
+        nombre_jornada = jornada["nombre"] if jornada else "JORNADA"
+
+        # =========================================================
+        # 🎫 RESUMEN POR SECTOR
+        # =========================================================
+        cursor.execute("""
+            SELECT s.nombre AS sector,
+                   SUM(d.cantidad) AS cantidad,
+                   SUM(d.subtotal) AS total
+            FROM ventas_entradas v
+            JOIN ventas_entradas_detalle d ON d.idventa = v.idventa
+            JOIN sectores_entradas s ON s.idsector = d.idsector
+            WHERE v.idjornada = %s
+              AND v.estado = 'OK'
+            GROUP BY s.nombre
+            ORDER BY s.nombre
+        """, (idjornada,))
+        sectores = cursor.fetchall()
+
+        # =========================================================
+        # 💳 RESUMEN POR FORMA DE PAGO
+        # =========================================================
+        cursor.execute("""
+            SELECT m.modo,
+                   SUM(p.importe) AS total
+            FROM ventas_entradas_pagos p
+            JOIN ventas_entradas v ON v.idventa = p.idventa
+            JOIN modopago m ON m.idmodopago = p.idmodopago
+            WHERE v.idjornada = %s
+              AND v.estado = 'OK'
+            GROUP BY m.modo
+            ORDER BY m.modo
+        """, (idjornada,))
+        pagos = cursor.fetchall()
+
+        # =========================================================
+        # 💰 TOTAL GENERAL
+        # =========================================================
+        cursor.execute("""
+            SELECT COALESCE(SUM(total),0) AS total
+            FROM ventas_entradas
+            WHERE idjornada = %s
+              AND estado = 'OK'
+        """, (idjornada,))
+        fila_total = cursor.fetchone()
+        total = fila_total["total"] if fila_total else 0
+
+        # =========================================================
+        # 📦 ARMAR CONTEXTO
+        # =========================================================
+        datos = {
+            "idjornada": idjornada,
+            "nombre": nombre_jornada,
+            "operador": usuario,
+            "fecha": now
+        }
+
+        return render_template(
+            "ticket_cierre_boleteria.html",
+            datos=datos,
+            sectores=sectores,
+            pagos=pagos,
+            total=total
+        )
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("ERROR TICKET_CIERRE_BOLETERIA:", e)
+        return "Error generando ticket de cierre de boletería", 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
+
+
+
+
 
 #Reporte Boleteria
 @app.route("/reporte_boleteria")
