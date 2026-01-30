@@ -1227,7 +1227,7 @@ def ventas_home():
         # 📦 PRODUCTOS HABILITADOS EN LA JORNADA
         # =====================================================
         cursor.execute("""
-            SELECT p.idproductos, p.nombre, p.importe
+            SELECT p.idproductos, p.nombre, p.importe,p.stock
             FROM productos p
             JOIN jornadas_productos jp ON p.idproductos = jp.idproducto
             JOIN jornadas j ON jp.idjornada = j.idjornada
@@ -1309,7 +1309,7 @@ def registrar_venta():
         jp = cursor.fetchone()
 
         if not jp or jp["estado"] != "Abierto":
-            return jsonify({
+           return jsonify({
                 "success": False,
                 "error": "La caja está cerrada"
             }), 403
@@ -1321,14 +1321,13 @@ def registrar_venta():
         total = float(total_str.replace(".", "").replace(",", "."))
 
         # =====================================================
-        # 💳 ARMAR PAGOS (SIMPLE O MIXTO)
+        # 💳 ARMAR PAGOS
         # =====================================================
         pagos = []
         pagos_mixtos_json = request.form.get("pagos_mixtos")
 
         if pagos_mixtos_json:
             pagos_mixtos = json.loads(pagos_mixtos_json)
-
             for p in pagos_mixtos:
                 pagos.append({
                     "idmodopago": int(p["medio"]),
@@ -1349,18 +1348,12 @@ def registrar_venta():
         # =====================================================
         suma_pagos = round(sum(p["importe"] for p in pagos), 2)
         if round(total, 2) != suma_pagos:
-            return jsonify({
-                "success": False,
-                "error": "La suma de los pagos no coincide con el total"
-            }), 400
+            return jsonify({"success": False, "error": "La suma de los pagos no coincide con el total"}), 400
 
-        # =====================================================
-        # 🏷️ MODO DE PAGO CABECERA
-        # =====================================================
         idmodopago_venta = pagos[0]["idmodopago"] if len(pagos) == 1 else None
 
         # =====================================================
-        # 🧾 INSERTAR VENTA (CABECERA)
+        # 🧾 INSERTAR VENTA CABECERA
         # =====================================================
         qr_token = uuid.uuid4().hex
 
@@ -1383,28 +1376,58 @@ def registrar_venta():
         idventa = cursor.lastrowid
 
         # =====================================================
-        # 💳 INSERTAR PAGOS DETALLADOS
+        # 💳 INSERTAR PAGOS
         # =====================================================
         for p in pagos:
             cursor.execute("""
                 INSERT INTO ventas_pagos
                 (idventa, idmodopago, importe)
                 VALUES (%s,%s,%s)
-            """, (
-                idventa,
-                p["idmodopago"],
-                p["importe"]
-            ))
+            """, (idventa, p["idmodopago"], p["importe"]))
 
         # =====================================================
-        # 📦 DETALLE DE PRODUCTOS
+        # 📦 CONTROL DE STOCK ANTES DEL DETALLE
         # =====================================================
+        forzar = request.form.get("forzar_stock", "0") == "1"
+
         productos   = request.form.getlist("productos[]")
         cantidades  = request.form.getlist("cantidades[]")
         precios     = request.form.getlist("precios[]")
         cortesias   = request.form.getlist("cortesias[]")
         autorizados = request.form.getlist("autorizados[]")
 
+        for i in range(len(productos)):
+            idprod = productos[i]
+            cantidad = int(cantidades[i])
+
+            cursor.execute("SELECT stock, nombre FROM productos WHERE idproductos=%s", (idprod,))
+            prod = cursor.fetchone()
+
+            if not prod:
+                raise Exception(f"Producto inexistente ID {idprod}")
+
+            stock_actual = prod["stock"]
+            nombre_prod  = prod["nombre"]
+
+            if stock_actual <= 0 and not forzar:
+                conexion.rollback()
+                return jsonify({
+                    "success": False,
+                    "requiere_confirmacion": True,
+                    "mensaje": f"{nombre_prod} no tiene stock. ¿Vender igual?"
+                })
+
+            if cantidad > stock_actual and not forzar:
+                conexion.rollback()
+                return jsonify({
+                    "success": False,
+                    "requiere_confirmacion": True,
+                    "mensaje": f"Solo quedan {stock_actual} de {nombre_prod}"
+                })
+
+        # =====================================================
+        # 📦 DETALLE DE PRODUCTOS
+        # =====================================================
         total_puntos = 0
 
         for i in range(len(productos)):
@@ -1433,6 +1456,13 @@ def registrar_venta():
             if not es_cortesia:
                 total_puntos += int(subtotal // 100)
 
+                # 🔻 DESCONTAR STOCK
+                cursor.execute("""
+                    UPDATE productos
+                    SET stock = GREATEST(stock - %s, 0)
+                    WHERE idproductos = %s
+                """, (cantidad, productos[i]))
+
         # =====================================================
         # ⭐ ACTUALIZAR PUNTOS
         # =====================================================
@@ -1447,25 +1477,48 @@ def registrar_venta():
         # =====================================================
         conexion.commit()
 
-        return jsonify({
-            "success": True,
-            "idventa": idventa
-        })
+        return jsonify({"success": True, "idventa": idventa})
 
     except Exception as e:
         if conexion:
             conexion.rollback()
         print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
     finally:
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
+
+
+
+
+@app.route("/stock_productos")
+def stock_productos():
+    try:
+        conexion = getConnection()
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+
+        cursor.execute("""
+            SELECT idproductos, stock
+            FROM productos
+            WHERE estado = 'Activo'
+        """)
+
+        datos = cursor.fetchall()
+
+        return jsonify(datos)  # 👈 YA ES JSON PERFECTO
+
+    except Exception as e:
+        print("ERROR STOCK:", e)
+        return jsonify({"error": "Error obteniendo stock"}), 500
+
+    finally:
+        cursor.close()
+        conexion.close()
+
+
 
 #Ruta para actualizar la recaudacion por caja 
 # =========================================================

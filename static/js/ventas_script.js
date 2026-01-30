@@ -52,6 +52,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   verificarEstadoCaja();
 
+  
+
+
+  /* =====================================================
+   CONTROL VISUAL DE STOCK
+===================================================== */
+document.querySelectorAll(".producto-card").forEach(card => {
+  const stock = parseInt(card.dataset.stock);
+  const btn = card.querySelector(".agregar");
+
+  if (!btn) return;
+
+  btn.classList.remove("btn-success", "btn-warning", "btn-danger");
+
+  if (stock === 0) {
+    btn.classList.add("btn-danger");   // 🔴 sin stock
+    btn.title = "Producto sin stock";
+  }
+  else if (stock > 0 && stock <= 10) {
+    btn.classList.add("btn-warning");  // 🟡 bajo
+    btn.title = "Stock bajo";
+  }
+  else {
+    btn.classList.add("btn-success");  // 🟢 normal
+    btn.title = "Stock disponible";
+  }
+});
+
+
   /* =====================================================
      CARRITO
   ===================================================== */
@@ -100,26 +129,84 @@ document.addEventListener("DOMContentLoaded", () => {
      AGREGAR PRODUCTOS
   ===================================================== */
   document.querySelectorAll(".agregar").forEach(btn => {
-    btn.addEventListener("click", e => {
-      const card = e.target.closest(".producto-card");
-      const id = card.dataset.id;
+  btn.addEventListener("click", e => {
+    const card = e.target.closest(".producto-card");
+    const id = card.dataset.id;
+    const stock = parseInt(card.dataset.stock) || 0;
 
-      let prod = carrito.find(p => p.id == id);
-      if (prod) {
-        prod.cantidad++;
-      } else {
-        carrito.push({
-          id,
-          nombre: card.dataset.nombre,
-          precio: parseFloat(card.dataset.precio),
-          cantidad: 1,
-          cortesia: false,
-          autorizado: ""
-        });
-      }
-      actualizarCarrito();
-    });
+    // 🚫 NO PERMITIR AGREGAR SI NO HAY STOCK
+    if (stock <= 0) {
+      alert("Este producto no tiene stock disponible.");
+      return;
+    }
+
+    let prod = carrito.find(p => p.id == id);
+
+    if (prod) {
+      prod.cantidad++;
+    } else {
+      carrito.push({
+        id,
+        nombre: card.dataset.nombre,
+        precio: parseFloat(card.dataset.precio),
+        cantidad: 1,
+        cortesia: false,
+        autorizado: "",
+        stock: stock   // ⭐️ ESTA ES LA CLAVE
+      });
+    }
+
+    actualizarCarrito();
   });
+});
+
+  /* =====================================================
+     ACTUALIZAR STOCK
+  ===================================================== */
+async function refrescarStockDesdeServidor() {
+  console.log("🔄 Refrescando stock...");
+
+  const res = await fetch("/stock_productos");
+  const productos = await res.json();
+
+  productos.forEach(p => {
+
+    const card = document.querySelector(`.producto-card[data-id="${p.idproductos}"]`);
+    if (!card) return;
+
+    // ✅ ACTUALIZA DATASET
+    card.dataset.stock = p.stock;
+
+    // ✅ ACTUALIZA TEXTO VISIBLE
+    const stockText = card.querySelector(".stock-text");
+    if (stockText) {
+      stockText.textContent = "Stock: " + p.stock;
+    }
+
+    // ✅ CAMBIA COLOR DEL BOTÓN
+    const btn = card.querySelector(".agregar");
+    if (!btn) return;
+
+    btn.className = "btn btn-sm agregar mt-1 w-100 fw-bold";
+
+    if (p.stock === 0) {
+      btn.classList.add("btn-danger");
+      btn.title = "Sin stock";
+    }
+    else if (p.stock <= 10) {
+      btn.classList.add("btn-warning");
+      btn.title = "Stock bajo";
+    }
+    else {
+      btn.classList.add("btn-success");
+      btn.title = "Stock normal";
+    }
+  });
+}
+
+
+
+
 
   /* =====================================================
      EVENTOS CARRITO
@@ -171,19 +258,28 @@ document.addEventListener("DOMContentLoaded", () => {
      COBRAR
   ===================================================== */
   $("procesarVenta")?.addEventListener("click", () => {
-    if (!carrito.length) {
-      alert("Debe agregar productos");
-      return;
-    }
+  if (!carrito.length) {
+    alert("Debe agregar productos");
+    return;
+  }
 
-    if (togglePagoCombinado.checked && !pagoMixtoConfirmado) {
-      abrirPagoMixto();
-      return;
-    }
+  // 🚫 BLOQUEO POR STOCK
+  const sinStock = carrito.find(p => p.stock <= 0);
+  if (sinStock) {
+    alert("Hay productos sin stock. Pedir reposición al administrador.");
+    return;
+  }
 
-    registrarVenta();
-    actualizarRecaudacionCaja();
-  });
+  if (togglePagoCombinado.checked && !pagoMixtoConfirmado) {
+    abrirPagoMixto();
+    return;
+  }
+
+  registrarVenta();
+  actualizarRecaudacionCaja();
+});
+
+
 
   /* =====================================================
      PAGO MIXTO
@@ -271,10 +367,13 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(data.msg);
       return;
     }
-
+    
     imprimirTicket(data.idventa);
     actualizarRecaudacionCaja();
+    await refrescarStockDesdeServidor();
     resetearVenta();
+ 
+
   }
 
   function imprimirTicket(id) {
@@ -412,6 +511,9 @@ $("guardarAutorizacion")?.addEventListener("click", () => {
     document.body.appendChild(iframe);
     iframe.onload = () => iframe.contentWindow.print();
   }
+
+  
+
 
 });
 

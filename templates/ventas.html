@@ -13,37 +13,50 @@
   <div class="ventas-pos d-flex">
 
     <!-- ================= PRODUCTOS ================= -->
-    <section class="productos-pos flex-fill me-2">
-      <div class="row g-2">
+<section class="productos-pos flex-fill me-2">
+  <div class="row g-2">
 
-        {% for p in productos %}
-        <div class="col-auto">
-          <div class="card producto-card text-center p-1 bg-dark text-white"
-               style="width:120px;"
-               data-id="{{ p.idproductos }}"
-               data-nombre="{{ p.nombre }}"
-               data-precio="{{ p.importe }}">
+    {% for p in productos %}
+    <div class="col-auto">
+      <div class="card producto-card text-center p-2 bg-dark text-white shadow-sm"
+           style="width:115px; font-size:0.75rem;"
+           data-id="{{ p.idproductos }}"
+           data-nombre="{{ p.nombre }}"
+           data-precio="{{ p.importe }}"
+           data-stock="{{ p.stock }}">
 
-            <div class="card-body p-1 d-flex flex-column justify-content-between">
-              <div class="nombre-producto fw-semibold text-truncate"
-                   style="font-size:0.6rem;">
-                {{ p.nombre }}
-              </div>
+        <div class="card-body p-1 d-flex flex-column justify-content-between">
 
-              <div class="text-warning small">
-                $ {{ p.importe }}
-              </div>
-
-              <button class="btn btn-success btn-sm agregar mt-1" type="button">
-                +
-              </button>
-            </div>
+          <!-- NOMBRE -->
+          <div class="nombre-producto text-truncate fw-semibold">
+            {{ p.nombre }}
           </div>
-        </div>
-        {% endfor %}
 
+          <!-- PRECIO -->
+          <div class="text-warning fw-bold" style="font-size:0.8rem;">
+            $ {{ p.importe }}
+          </div>
+
+          <!-- STOCK -->
+          <div class="stock-text" style="font-size:0.7rem; opacity:0.85;">
+               Stock: {{ p.stock }}
+          </div>
+
+
+          <!-- BOTÓN AGREGAR -->
+          <button class="btn btn-sm agregar mt-1 w-100 fw-bold"
+                  style="padding:3px 0; font-size:0.9rem;">
+            +
+          </button>
+
+        </div>
       </div>
-    </section>
+    </div>
+    {% endfor %}
+
+  </div>
+</section>
+
 
     <!-- ================= CARRITO / CAJA ================= -->
     <aside class="carrito-pos bg-dark text-white p-2 rounded"
