@@ -1,6 +1,8 @@
 @echo off
-cd /d G:\Escri\tickets
+cd /d C:\Users\In.club\Documents\InClub
+
 call venv\Scripts\activate
+
 python run_server.py
 
 
