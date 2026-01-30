@@ -5,18 +5,83 @@
 <title>Cierre Boletería</title>
 
 <style>
-body {
-  font-family: monospace;
-  width: 80mm;
-  font-size: 12px;
+/* ===== CONFIGURACIÓN DE PÁGINA ===== */
+@page {
+  size: 80mm auto;  /* 80mm ancho, altura automática */
+  margin: 0;        /* elimina márgenes de impresora */
 }
-.center { text-align: center; }
-.line { border-top: 1px dashed #000; margin: 6px 0; }
-.row { display: flex; justify-content: space-between; }
+
+/* ===== ESTILO GENERAL DEL TICKET ===== */
+body {
+  width: 80mm;
+  margin: 0;
+  padding: 2mm 0;   /* pequeño padding superior e inferior */
+  font-family: monospace;
+  font-size: 14px;  /* tamaño legible en impresora térmica */
+  line-height: 1.3; /* separación entre líneas */
+  color: #000;
+}
+
+/* ===== CENTRADO Y NEGRITA ===== */
+.center {
+  text-align: center;
+}
+
+.right {
+  text-align: right;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+/* ===== LÍNEAS SEPARADORAS ===== */
+.line, hr {
+  border: 0;
+  border-top: 1px dashed #000;
+  margin: 2px 0;
+  padding: 0;
+}
+
+/* ===== FILAS FLEXIBLES ===== */
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ===== TABLAS ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+  padding: 0;
+}
+
+td {
+  padding: 0;
+  font-size: 14px;
+}
+
+/* ===== ESTILOS MEDIA PRINT ===== */
+@media print {
+  html, body {
+    width: 80mm;
+    height: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Evitar cabeceras y pies de página automáticos del navegador */
+  @page {
+    margin: 0;
+  }
+}
 </style>
+
 </head>
 
 <body onload="window.print()">
+<div class="center bold" style="font-size:14px;">TicketJets</div>
 
 <div class="center">
   <strong>CIERRE DE BOLETERÍA</strong><br>
@@ -54,6 +119,10 @@ body {
 
 <div class="center">
   {{ datos.cierre }}
+</div>
+<div class="center" style="font-size:14px;">
+  FIN DE CIERRE<br>
+  Gracias
 </div>
 
 </body>
