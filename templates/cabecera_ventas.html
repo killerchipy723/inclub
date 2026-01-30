@@ -42,26 +42,38 @@
   </div>
   {% endif %}
 
+
+ 
+
   <!-- ACCIONES -->
   <div class="d-flex align-items-center gap-2">
+    
+     <!-- CERRAR CAJA -->
+    <button class="btn btn-danger btn-sm d-flex align-items-center gap-1"
+            data-bs-toggle="modal"
+            data-bs-target="#modalCerrarCaja">
 
+      <i class="bi bi-lock-fill"></i>
+      <img src="/static/icons/llaves.png"
+           alt="Cerrar sesión"
+           style="width:30px;height:30px;">
+      Cerrar Caja
+    </button>
+    
+    
+    
     <!-- CERRAR SESIÓN -->
     <a href="/logout"
-       class="btn btn-outline-light btn-sm d-flex align-items-center gap-2">
+       class="btn btn-warning btn-sm d-flex align-items-center gap-2">
 
       <img src="/static/icons/cerrar.png"
            alt="Cerrar sesión"
-           style="width:14px;height:14px;">
+           style="width:30px;height:30px;">
 
-      <span>Cerrar sesión</span>
+      <span>Salir</span>
     </a>
 
-    <!-- CERRAR CAJA -->
-    <button class="btn btn-danger btn-sm d-flex align-items-center gap-1"
-            onclick="cerrarCaja()">
-      <i class="bi bi-lock-fill"></i>
-      Cerrar Caja
-    </button>
+    
 
   </div>
 </div>
