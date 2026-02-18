@@ -15,5 +15,10 @@ CREATE TABLE ventas_entradas_pagos (
 ALTER TABLE ventas_entradas
 ADD COLUMN idmodopago INT NULL AFTER cliente;
 
+#Modificar tabla ventas 
+ALTER TABLE ventas 
+MODIFY estado ENUM('PENDIENTE','OK','CANCELADA') NOT NULL;
+
+
 
 

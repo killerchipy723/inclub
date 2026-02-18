@@ -1390,217 +1390,124 @@ def ventas_home():
 # =========================================================
 @app.route("/registrar_venta", methods=["POST"])
 def registrar_venta():
-
-    # 🔒 Seguridad
     if "id" not in session:
         return redirect(url_for("home"))
 
-    idusuario = session["id"]
-    idpunto   = session["idpunto"]
-    idjornada = session["idjornada"]
-    idcliente = request.form.get("cliente")
+    accion = request.form.get("accion", "previsualizar")
 
     conexion = None
     cursor = None
 
     try:
-        # 🔌 Conexión
+        idusuario = session["id"]
+        idpunto = session["idpunto"]
+        idjornada = session["idjornada"]
+        idcliente = request.form.get("cliente")
+
         conexion = getConnection()
         cursor = conexion.cursor(pymysql.cursors.DictCursor)
 
-        # =====================================================
-        # 🧾 VALIDAR CAJA ABIERTA
-        # =====================================================
+        # 🔒 Validar caja abierta
         cursor.execute("""
             SELECT estado
             FROM jornadas_puntos
-            WHERE idjornada = %s AND idpunto = %s
+            WHERE idjornada=%s AND idpunto=%s
         """, (idjornada, idpunto))
         jp = cursor.fetchone()
-
         if not jp or jp["estado"] != "Abierto":
-           return jsonify({
-                "success": False,
-                "error": "La caja está cerrada"
-            }), 403
+            return jsonify(success=False, error="La caja está cerrada"), 403
 
-        # =====================================================
-        # 💰 TOTAL VENTA
-        # =====================================================
-        total_str = request.form.get("total", "0")
-        total = float(total_str.replace(".", "").replace(",", "."))
+        # 💰 Total
+        total = float(request.form.get("total", "0").replace(".", "").replace(",", "."))
 
-        # =====================================================
-        # 💳 ARMAR PAGOS
-        # =====================================================
+        # 💳 Pagos
         pagos = []
         pagos_mixtos_json = request.form.get("pagos_mixtos")
-
         if pagos_mixtos_json:
             pagos_mixtos = json.loads(pagos_mixtos_json)
             for p in pagos_mixtos:
-                pagos.append({
-                    "idmodopago": int(p["medio"]),
-                    "importe": float(p["monto"])
-                })
+                pagos.append({"idmodopago": int(p["medio"]), "importe": float(p["monto"])})
         else:
-            idmodopago_form = request.form.get("modopago")
-            if not idmodopago_form:
-                raise Exception("No se recibió modo de pago")
+            pagos.append({"idmodopago": int(request.form.get("modopago")), "importe": total})
 
-            pagos.append({
-                "idmodopago": int(idmodopago_form),
-                "importe": total
-            })
-
-        # =====================================================
-        # 🧮 VALIDAR SUMA DE PAGOS
-        # =====================================================
-        suma_pagos = round(sum(p["importe"] for p in pagos), 2)
-        if round(total, 2) != suma_pagos:
-            return jsonify({"success": False, "error": "La suma de los pagos no coincide con el total"}), 400
+        if round(sum(p["importe"] for p in pagos), 2) != round(total, 2):
+            return jsonify(success=False, error="Pagos incorrectos"), 400
 
         idmodopago_venta = pagos[0]["idmodopago"] if len(pagos) == 1 else None
-
-        # =====================================================
-        # 🧾 INSERTAR VENTA CABECERA
-        # =====================================================
         qr_token = uuid.uuid4().hex
 
-        cursor.execute("""
-            INSERT INTO ventas
-            (idjornada, idusuario, idpunto, idclientes, idmodopago,
-             total, descuento_total, fecha_hora, estado, observaciones,
-             puntos_ganados, qr_token)
-            VALUES (%s,%s,%s,%s,%s,%s,0,NOW(),'OK','',0,%s)
-        """, (
-            idjornada,
-            idusuario,
-            idpunto,
-            idcliente if idcliente != "0" else None,
-            idmodopago_venta,
-            total,
-            qr_token
-        ))
-
-        idventa = cursor.lastrowid
-
-        # =====================================================
-        # 💳 INSERTAR PAGOS
-        # =====================================================
-        for p in pagos:
-            cursor.execute("""
-                INSERT INTO ventas_pagos
-                (idventa, idmodopago, importe)
-                VALUES (%s,%s,%s)
-            """, (idventa, p["idmodopago"], p["importe"]))
-
-        # =====================================================
-        # 📦 CONTROL DE STOCK ANTES DEL DETALLE
-        # =====================================================
-        forzar = request.form.get("forzar_stock", "0") == "1"
-
+        # 📦 Productos
         productos   = request.form.getlist("productos[]")
         cantidades  = request.form.getlist("cantidades[]")
         precios     = request.form.getlist("precios[]")
         cortesias   = request.form.getlist("cortesias[]")
         autorizados = request.form.getlist("autorizados[]")
 
+        # Validar stock antes de insertar
         for i in range(len(productos)):
-            idprod = productos[i]
-            cantidad = int(cantidades[i])
-
-            cursor.execute("SELECT stock, nombre FROM productos WHERE idproductos=%s", (idprod,))
+            cursor.execute("SELECT stock, nombre FROM productos WHERE idproductos=%s", (productos[i],))
             prod = cursor.fetchone()
-
-            if not prod:
-                raise Exception(f"Producto inexistente ID {idprod}")
-
-            stock_actual = prod["stock"]
-            nombre_prod  = prod["nombre"]
-
-            if stock_actual <= 0 and not forzar:
+            if prod["stock"] < int(cantidades[i]):
                 conexion.rollback()
-                return jsonify({
-                    "success": False,
-                    "requiere_confirmacion": True,
-                    "mensaje": f"{nombre_prod} no tiene stock. ¿Vender igual?"
-                })
+                return jsonify(success=False, requiere_confirmacion=True,
+                               mensaje=f"Stock insuficiente de {prod['nombre']}")
 
-            if cantidad > stock_actual and not forzar:
-                conexion.rollback()
-                return jsonify({
-                    "success": False,
-                    "requiere_confirmacion": True,
-                    "mensaje": f"Solo quedan {stock_actual} de {nombre_prod}"
-                })
+        # 🧾 Insert venta directamente como OK
+        cursor.execute("""
+            INSERT INTO ventas (idjornada, idusuario, idpunto, idclientes, idmodopago,
+                                total, descuento_total, fecha_hora, estado, observaciones,
+                                puntos_ganados, qr_token)
+            VALUES (%s,%s,%s,%s,%s,%s,0,NOW(),'OK','',0,%s)
+        """, (idjornada, idusuario, idpunto, idcliente if idcliente != "0" else None,
+              idmodopago_venta, total, qr_token))
+        idventa = cursor.lastrowid
 
-        # =====================================================
-        # 📦 DETALLE DE PRODUCTOS
-        # =====================================================
+        # Insertar pagos
+        for p in pagos:
+            cursor.execute("INSERT INTO ventas_pagos (idventa, idmodopago, importe) VALUES (%s,%s,%s)",
+                           (idventa, p["idmodopago"], p["importe"]))
+
+        # Insertar detalle y descontar stock
         total_puntos = 0
-
         for i in range(len(productos)):
             cantidad = int(cantidades[i])
-            precio   = float(precios[i])
-            es_cortesia = i < len(cortesias) and cortesias[i] == "1"
-            autorizado  = autorizados[i] if i < len(autorizados) else ""
-
+            precio = float(precios[i])
+            es_cortesia = cortesias[i] == "1" if i < len(cortesias) else False
+            autorizado = autorizados[i] if i < len(autorizados) else ""
             subtotal = 0 if es_cortesia else cantidad * precio
 
+            # Detalle
             cursor.execute("""
-                INSERT INTO ventas_detalle
-                (idventa, idproductos, cantidad, precio_unitario,
-                 subtotal, cortesia, autorizado)
+                INSERT INTO ventas_detalle (idventa, idproductos, cantidad, precio_unitario,
+                                            subtotal, cortesia, autorizado)
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                idventa,
-                productos[i],
-                cantidad,
-                precio,
-                subtotal,
-                es_cortesia,
-                autorizado
-            ))
+            """, (idventa, productos[i], cantidad, precio, subtotal, es_cortesia, autorizado))
 
+            # Descontar stock solo si no es cortesia
             if not es_cortesia:
-                total_puntos += int(subtotal // 100)
-
-                # 🔻 DESCONTAR STOCK
                 cursor.execute("""
                     UPDATE productos
                     SET stock = GREATEST(stock - %s, 0)
                     WHERE idproductos = %s
                 """, (cantidad, productos[i]))
+                total_puntos += int(subtotal // 100)
 
-        # =====================================================
-        # ⭐ ACTUALIZAR PUNTOS
-        # =====================================================
-        cursor.execute("""
-            UPDATE ventas
-            SET puntos_ganados = %s
-            WHERE idventa = %s
-        """, (total_puntos, idventa))
+        # Actualizar puntos
+        cursor.execute("UPDATE ventas SET puntos_ganados=%s WHERE idventa=%s", (total_puntos, idventa))
 
-        # =====================================================
-        # 💾 CONFIRMAR TRANSACCIÓN
-        # =====================================================
         conexion.commit()
-
-        return jsonify({"success": True, "idventa": idventa})
+        return jsonify(success=True, idventa=idventa)
 
     except Exception as e:
         if conexion:
             conexion.rollback()
-        print("ERROR REGISTRAR VENTA:", e)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify(success=False, error=str(e)), 500
 
     finally:
         if cursor:
             cursor.close()
         if conexion:
             conexion.close()
-
 
 
 

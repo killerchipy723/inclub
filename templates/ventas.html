@@ -131,10 +131,12 @@
       </div>
 
       <button id="procesarVenta"
-              type="button"
-              class="btn btn-success btn-lg w-100">
-        COBRAR
-      </button>
+        type="button"
+        class="btn btn-success btn-lg w-100">
+        COBRAR 
+    </button>
+
+    
     </div>
 
     <!-- INPUTS OCULTOS -->
@@ -306,6 +308,83 @@
     </div>
   </div>
 </div>
+
+<!-- ================= MODAL CONFIRMAR VENTA ================= -->
+<div class="modal fade" id="modalConfirmarVenta" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark text-white">
+
+      <!-- HEADER -->
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Venta</h5>
+        <button type="button"
+                class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+
+        <!-- DETALLE -->
+        <div class="mb-2 fw-semibold">
+          Detalle de la venta
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-sm align-middle" id="tablaConfirmacion">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-center">Cant</th>
+                <th class="text-end">Precio</th>
+                <th class="text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- JS inserta filas -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TOTAL -->
+        <div class="text-end fs-5 fw-bold mt-3">
+          TOTAL $ <span id="totalConfirmacion">0</span>
+        </div>
+
+        <hr class="border-secondary">
+
+        <!-- PAGOS -->
+        <div>
+          <strong>Modo de pago:</strong>
+          <ul id="confirmacionPagos" class="mt-1 mb-0">
+            <!-- JS -->
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+            <button type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+            id="btnCancelarVenta">
+      Cancelar
+      </button>
+
+
+        <button type="button"
+                class="btn btn-success"
+                id="btnConfirmarVenta" autofocus>
+          Confirmar venta
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
 
 <!-- ================= SCRIPT ================= -->
 <script src="/static/js/ventas_script.js"></script>

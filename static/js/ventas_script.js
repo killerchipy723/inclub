@@ -23,6 +23,26 @@ document.addEventListener("DOMContentLoaded", () => {
   let pagoMixtoConfirmado = false;
 
   /* =====================================================
+   MODAL CONFIRMAR VENTA - CONFIGURACIÓN
+===================================================== */
+const modalConfirmarVentaEl = $("modalConfirmarVenta");
+const modalConfirmarVenta = new bootstrap.Modal(modalConfirmarVentaEl);
+
+// Cuando el modal se abre → foco automático en Confirmar
+modalConfirmarVentaEl.addEventListener("shown.bs.modal", () => {
+  $("btnConfirmarVenta").focus();
+});
+
+// ENTER confirma venta
+modalConfirmarVentaEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("btnConfirmarVenta").click();
+  }
+});
+
+
+  /* =====================================================
      ESTADO DE CAJA
   ===================================================== */
   async function verificarEstadoCaja() {
@@ -207,63 +227,155 @@ async function refrescarStockDesdeServidor() {
 
 
 
+/* =====================================================
+   EVENTOS CARRITO
+===================================================== */
+$("carritoTable")?.addEventListener("input", e => {
+  const i = e.target.dataset.index;
+  if (i === undefined) return;
 
-  /* =====================================================
-     EVENTOS CARRITO
-  ===================================================== */
-  $("carritoTable")?.addEventListener("input", e => {
-    const i = e.target.dataset.index;
-    if (i === undefined) return;
+  if (e.target.classList.contains("cantidad")) {
+    carrito[i].cantidad = parseInt(e.target.value) || 1;
+  }
 
-    if (e.target.classList.contains("cantidad")) {
-      carrito[i].cantidad = parseInt(e.target.value) || 1;
-    }
+  if (e.target.classList.contains("cortesia")) {
+    carrito[i].cortesia = e.target.checked;
 
-    if (e.target.classList.contains("cortesia")) {
-      carrito[i].cortesia = e.target.checked;
-
-      if (e.target.checked) {
-        $("guardarAutorizacion").dataset.index = i;
-        new bootstrap.Modal($("modalCortesia")).show();
-      } else {
-        carrito[i].autorizado = "";
-      }
-    }
-
-    actualizarCarrito();
-  });
-
-  $("carritoTable")?.addEventListener("click", e => {
-    if (e.target.classList.contains("eliminar")) {
-      carrito.splice(e.target.dataset.index, 1);
-      actualizarCarrito();
-    }
-  });
-
-  /* =====================================================
-     TOGGLE PAGO COMBINADO
-  ===================================================== */
-  togglePagoCombinado?.addEventListener("change", () => {
-    if (togglePagoCombinado.checked) {
-      selectModoPago.disabled = true;
-      abrirPagoMixto();
+    if (e.target.checked) {
+      $("guardarAutorizacion").dataset.index = i;
+      new bootstrap.Modal($("modalCortesia")).show();
     } else {
-      selectModoPago.disabled = false;
-      pagosMixtos = [];
-      pagoMixtoConfirmado = false;
+      carrito[i].autorizado = "";
     }
+  }
+
+  actualizarCarrito();
+});
+
+$("carritoTable")?.addEventListener("click", e => {
+  if (e.target.classList.contains("eliminar")) {
+    carrito.splice(e.target.dataset.index, 1);
+    actualizarCarrito();
+  }
+});
+
+/* =====================================================
+   MODAL PAGOS - INSTANCIA ÚNICA
+===================================================== */
+const modalPagosEl = $("modalPagos");
+const modalPagos = new bootstrap.Modal(modalPagosEl);
+
+
+/* =====================================================
+   TOGGLE PAGO COMBINADO
+===================================================== */
+togglePagoCombinado?.addEventListener("change", () => {
+
+  if (togglePagoCombinado.checked) {
+    selectModoPago.disabled = true;
+    abrirPagoMixto();
+  } else {
+    selectModoPago.disabled = false;
+    pagosMixtos = [];
+    pagoMixtoConfirmado = false;
+  }
+
+});
+
+
+/* =====================================================
+   ABRIR MODAL PAGO MIXTO
+===================================================== */
+function abrirPagoMixto() {
+
+  $("pagosContainer").innerHTML = "";
+  $("totalVentaModal").textContent = formatoMoneda(calcularTotal());
+
+  agregarFilaPago();
+  modalPagos.show();
+}
+
+
+/* =====================================================
+   SI SE CIERRA EL MODAL SIN CONFIRMAR → APAGAR TOGGLE
+===================================================== */
+modalPagosEl.addEventListener("hidden.bs.modal", () => {
+
+  if (!pagoMixtoConfirmado) {
+    togglePagoCombinado.checked = false;
+    togglePagoCombinado.dispatchEvent(new Event("change"));
+  }
+
+});
+
+
+/* =====================================================
+   AGREGAR FILA DE PAGO
+===================================================== */
+function agregarFilaPago() {
+
+  const div = document.createElement("div");
+  div.className = "row g-2 mb-2";
+
+  div.innerHTML = `
+    <div class="col-7">
+      <select class="form-select form-select-sm medioPago">
+        ${selectModoPago.innerHTML}
+      </select>
+    </div>
+    <div class="col-5">
+      <input type="number" class="form-control form-control-sm montoPago" min="0">
+    </div>
+  `;
+
+  $("pagosContainer").appendChild(div);
+}
+
+$("btnAgregarPago")?.addEventListener("click", agregarFilaPago);
+
+
+/* =====================================================
+   CONFIRMAR PAGOS MIXTOS
+===================================================== */
+$("confirmarPagos")?.addEventListener("click", () => {
+
+  pagosMixtos = [];
+  let suma = 0;
+
+  document.querySelectorAll("#pagosContainer .row").forEach(r => {
+
+    const medio = r.querySelector(".medioPago").value;
+    const monto = parseFloat(r.querySelector(".montoPago").value || 0);
+
+    if (monto > 0) {
+      pagosMixtos.push({ medio, monto });
+      suma += monto;
+    }
+
   });
 
-  /* =====================================================
-     COBRAR
-  ===================================================== */
-  $("procesarVenta")?.addEventListener("click", () => {
+  if (suma !== calcularTotal()) {
+    alert("Los montos no coinciden con el total");
+    return;
+  }
+
+  pagoMixtoConfirmado = true;
+  modalPagos.hide();
+
+  registrarVenta();
+});
+
+
+/* =====================================================
+   COBRAR → ABRIR MODAL
+===================================================== */
+$("procesarVenta")?.addEventListener("click", () => {
+
   if (!carrito.length) {
     alert("Debe agregar productos");
     return;
   }
 
-  // 🚫 BLOQUEO POR STOCK
   const sinStock = carrito.find(p => p.stock <= 0);
   if (sinStock) {
     alert("Hay productos sin stock. Pedir reposición al administrador.");
@@ -275,130 +387,162 @@ async function refrescarStockDesdeServidor() {
     return;
   }
 
-  registrarVenta();
-  actualizarRecaudacionCaja();
+  prepararModalConfirmacion();
+  modalConfirmarVenta.show();
+});
+
+/* =====================================================
+   ATAJO TECLADO - BOTÓN COBRAR
+===================================================== */
+
+document.addEventListener("keydown", function (e) {
+
+  // No activar si estás escribiendo en un input
+  const tag = document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+  // Tecla + (fila superior)
+  if (e.key === "1") {
+    e.preventDefault();
+    document.getElementById("procesarVenta")?.click();
+  }
+
 });
 
 
 
-  /* =====================================================
-     PAGO MIXTO
-  ===================================================== */
-  function abrirPagoMixto() {
-    $("pagosContainer").innerHTML = "";
-    $("totalVentaModal").textContent = formatoMoneda(calcularTotal());
-    agregarFilaPago();
-    new bootstrap.Modal($("modalPagos")).show();
-  }
+/* =====================================================
+   CANCELAR VENTA
+===================================================== */
+$("btnCancelarVenta")?.addEventListener("click", () => {
+  modalConfirmarVenta.hide();
+});
 
-  function agregarFilaPago() {
-    const div = document.createElement("div");
-    div.className = "row g-2 mb-2";
-    div.innerHTML = `
-      <div class="col-7">
-        <select class="form-select form-select-sm medioPago">
-          ${selectModoPago.innerHTML}
-        </select>
-      </div>
-      <div class="col-5">
-        <input type="number" class="form-control form-control-sm montoPago" min="0">
-      </div>
+
+/* =====================================================
+   ARMAR MODAL CONFIRMACIÓN
+===================================================== */
+function prepararModalConfirmacion() {
+
+  const tbody = $("tablaConfirmacion").querySelector("tbody");
+  tbody.innerHTML = "";
+
+  carrito.forEach(p => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.nombre}</td>
+      <td class="text-center">${p.cantidad}</td>
+      <td class="text-end">$ ${formatoMoneda(p.precio)}</td>
+      <td class="text-end">$ ${formatoMoneda(p.cantidad * p.precio)}</td>
     `;
-    $("pagosContainer").appendChild(div);
-  }
-
-  $("btnAgregarPago")?.addEventListener("click", agregarFilaPago);
-
-  $("confirmarPagos")?.addEventListener("click", () => {
-    pagosMixtos = [];
-    let suma = 0;
-
-    document.querySelectorAll("#pagosContainer .row").forEach(r => {
-      const medio = r.querySelector(".medioPago").value;
-      const monto = parseFloat(r.querySelector(".montoPago").value || 0);
-
-      if (monto > 0) {
-        pagosMixtos.push({ medio, monto });
-        suma += monto;
-      }
-    });
-
-    if (suma !== calcularTotal()) {
-      alert("Los montos no coinciden con el total");
-      return;
-    }
-
-    pagoMixtoConfirmado = true;
-    bootstrap.Modal.getInstance($("modalPagos")).hide();
-    registrarVenta();
+    tbody.appendChild(tr);
   });
 
-  /* =====================================================
-     REGISTRAR VENTA
-  ===================================================== */
-  async function registrarVenta() {
-    const fd = new FormData();
+  $("totalConfirmacion").textContent = formatoMoneda(calcularTotal());
 
-    fd.append("cliente", $("idcliente").value);
-    fd.append("total", calcularTotal());
+  const pagosUl = $("confirmacionPagos");
+  pagosUl.innerHTML = "";
 
-    if (togglePagoCombinado.checked) {
-      fd.append("pagos_mixtos", JSON.stringify(pagosMixtos));
-    } else {
-      fd.append("modopago", selectModoPago.value);
-    }
-
-    carrito.forEach(p => {
-      fd.append("productos[]", p.id);
-      fd.append("cantidades[]", p.cantidad);
-      fd.append("precios[]", p.precio);
-      fd.append("cortesias[]", p.cortesia ? 1 : 0);
-      fd.append("autorizados[]", p.autorizado || "");
+  if (togglePagoCombinado.checked) {
+    pagosMixtos.forEach(p => {
+      const li = document.createElement("li");
+      li.textContent = `${obtenerNombreModoPago(p.medio)}: $ ${formatoMoneda(p.monto)}`;
+      pagosUl.appendChild(li);
     });
+  } else {
+    const li = document.createElement("li");
+    li.textContent = `${selectModoPago.options[selectModoPago.selectedIndex].text}: $ ${formatoMoneda(calcularTotal())}`;
+    pagosUl.appendChild(li);
+  }
+}
 
-    const res = await fetch("/registrar_venta", {
-      method: "POST",
-      body: fd
-    });
 
-    const data = await res.json();
+/* =====================================================
+   CONFIRMAR VENTA
+===================================================== */
+$("btnConfirmarVenta")?.addEventListener("click", async () => {
+  modalConfirmarVenta.hide();
+  await registrarVenta();
+});
 
-    if (!data.success) {
-      alert(data.msg);
-      return;
-    }
-    
-    imprimirTicket(data.idventa);
-    actualizarRecaudacionCaja();
-    await refrescarStockDesdeServidor();
-    resetearVenta();
- 
 
+/* =====================================================
+   REGISTRAR VENTA
+===================================================== */
+async function registrarVenta() {
+
+  const fd = new FormData();
+
+  fd.append("cliente", $("idcliente").value);
+  fd.append("total", calcularTotal());
+
+  if (togglePagoCombinado.checked) {
+    fd.append("pagos_mixtos", JSON.stringify(pagosMixtos));
+  } else {
+    fd.append("modopago", selectModoPago.value);
   }
 
-  function imprimirTicket(id) {
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = `/ticket/${id}`;
-    document.body.appendChild(iframe);
-    iframe.onload = () => iframe.contentWindow.print();
+  carrito.forEach(p => {
+    fd.append("productos[]", p.id);
+    fd.append("cantidades[]", p.cantidad);
+    fd.append("precios[]", p.precio);
+    fd.append("cortesias[]", p.cortesia ? 1 : 0);
+    fd.append("autorizados[]", p.autorizado || "");
+  });
+
+  const res = await fetch("/registrar_venta", {
+    method: "POST",
+    body: fd
+  });
+
+  const data = await res.json();
+
+  if (!data.success) {
+    alert(data.error || "Error al registrar venta");
+    return;
   }
 
-  function resetearVenta() {
-    carrito = [];
-    pagosMixtos = [];
-    pagoMixtoConfirmado = false;
+  imprimirTicket(data.idventa);
+  actualizarRecaudacionCaja();
+  await refrescarStockDesdeServidor();
+  resetearVenta();
+}
 
-    actualizarCarrito();
-    $("clienteInput").value = "Consumidor Final";
-    $("idcliente").value = "1";
-    selectModoPago.selectedIndex = 0;
-    selectModoPago.disabled = false;
-    togglePagoCombinado.checked = false;
 
-    $("pagosContainer").innerHTML = "";
-    $("totalVentaModal").textContent = "0";
-  }
+/* =====================================================
+   IMPRIMIR
+===================================================== */
+function imprimirTicket(id) {
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = `/ticket/${id}`;
+  document.body.appendChild(iframe);
+  iframe.onload = () => iframe.contentWindow.print();
+}
+
+
+/* =====================================================
+   RESET VENTA
+===================================================== */
+function resetearVenta() {
+  carrito = [];
+  pagosMixtos = [];
+  pagoMixtoConfirmado = false;
+
+  actualizarCarrito();
+
+  $("clienteInput").value = "Consumidor Final";
+  $("idcliente").value = "1";
+
+  selectModoPago.selectedIndex = 0;
+  selectModoPago.disabled = false;
+
+  togglePagoCombinado.checked = false;
+  togglePagoCombinado.dispatchEvent(new Event("change"));
+
+  $("pagosContainer").innerHTML = "";
+  $("totalVentaModal").textContent = "0";
+}
 
   // ================= ACTUALIZAR RECAUDACION =================
 async function actualizarRecaudacionCaja() {
